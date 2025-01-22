@@ -1,0 +1,38 @@
+[package]
+name = "newton_lib"
+version = "0.1.0"
+authors = ["LLLL Colonq <llll@colonq.computer>"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "newton"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 2
+codegen-units = 1
+
+[profile.dev.package."*"]
+opt-level = 2
+
+[dependencies]
+teleia = { path = "../teleia" } # engine
+glam = "*" # linear algebra
+glow = "*" # gl bindings
+bitflags = "*" # C-style bitwise flags
+rand = "*" # rng
+log = "*" # logging
+lazy_static = "*" # global constants
+strum = {version = "*", features = ["derive"]} # utility macros for enums
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "*" # wasm bindings
+wasm-bindgen-futures = "*" # interface with async javascript
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "*"
+tokio = { version = "*", features = ["full"] }
+clap = { version = "*", features = ["cargo"] }

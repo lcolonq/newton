@@ -1,0 +1,98 @@
+use teleia::*;
+
+pub const WIDTH: usize = 64;
+pub const HEIGHT: usize = 64;
+
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+pub struct Pos {
+    pub x: i32, pub y: i32,
+}
+impl Pos {
+    pub fn new(x: i32, y: i32) -> Self { Self { x, y } }
+}
+impl std::ops::Add for Pos {
+    type Output = Pos;
+    fn add(self, rhs: Self) -> Self { Self {x: self.x + rhs.x, y: self.y + rhs.y } }
+}
+
+pub struct Layer<T> {
+    pub data: [T; WIDTH * HEIGHT],
+}
+impl<T> Layer<T> {
+    pub fn new() -> Self where T: Default {
+        Self {
+            data: [(); WIDTH * HEIGHT].map(|_| T::default()),
+        }
+    }
+    pub fn get(&self, p: Pos) -> Option<&T> {
+        if p.x < 0 || p.x >= WIDTH as _ || p.y < 0 || p.y >= HEIGHT as _ { return None }
+        let idx = p.x  as usize + p.y as usize * WIDTH;
+        Some(&self.data[idx])
+    }
+}
+impl Layer<glam::Vec3> {
+    pub fn from_framebuffer(&mut self, ctx: &context::Context, fb: &framebuffer::Framebuffer) {
+        fb.get_pixels(ctx, &mut self.data);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CharPair {
+    pub first: char,
+    pub second: Option<char>,
+}
+impl Default for CharPair {
+    fn default() -> Self {
+        Self {
+            first: 'a',
+            second: Some('b'),
+        }
+    }
+}
+
+pub struct Terminal {
+    pub font: font::Bitmap,
+    pub base_color: Layer<glam::Vec3>,
+    pub set_color: Layer<glam::Vec3>,
+    pub set_char: Layer<CharPair>,
+}
+impl Terminal {
+    pub fn new(ctx: &context::Context) -> Self {
+        Self {
+            font: font::Bitmap::from_image(ctx, 6, 12, 96, 72, include_bytes!("assets/fonts/terminus.png")),
+            base_color: Layer::new(),
+            set_color: Layer::new(),
+            set_char: Layer::new(),
+        }
+    }
+    pub fn get_color(&self, pos: Pos) -> glam::Vec3 {
+        if let Some(c) = self.base_color.get(pos) {
+            c.clone()
+        } else {
+            glam::Vec3::new(1.0, 1.0, 1.0)
+        }
+    }
+    pub fn update(&mut self, ctx: &context::Context, fb: &framebuffer::Framebuffer) {
+        self.base_color.from_framebuffer(ctx, fb);
+    }
+    pub fn render(&self, ctx: &context::Context, pos: &glam::Vec2) {
+        let mut s = String::new();
+        let mut colors = Vec::new();
+        for row in 0..64 {
+            for col in 0..64 {
+                let pos = Pos::new(col, row);
+                let new = if let Some(p) = self.set_char.get(pos) {
+                    format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' })
+                } else {
+                    String::from("  ")
+                };
+                s += &new;
+                let c = self.get_color(pos);
+                colors.push(c); colors.push(c);
+            }
+            s += "\n";
+            colors.push(glam::Vec3::new(1.0, 1.0, 1.0));
+        }
+        self.font.render_text_helper(ctx, pos, &s, &colors);
+    }
+}
