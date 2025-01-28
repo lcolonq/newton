@@ -27,6 +27,8 @@ rand = "*" # rng
 log = "*" # logging
 lazy_static = "*" # global constants
 strum = {version = "*", features = ["derive"]} # utility macros for enums
+polling = "*" # polling sockets 
+lexpr = "*" # s-expression parsing
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "*" # wasm bindings

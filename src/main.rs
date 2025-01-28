@@ -1,4 +1,4 @@
-mod newton;
+mod common;
 
 #[cfg(not(target_arch = "wasm32"))]
 use clap::{command, Command};
@@ -24,7 +24,7 @@ pub async fn main() {
         .get_matches();
     match matches.subcommand() {
         Some(("overlay", _cm)) => {
-            teleia::run("LCOLONQ", 1920, 1080, newton::overlay::Overlay::new).await;
+            teleia::run("LCOLONQ", 1920, 1080, true, common::overlay::Overlay::new).await;
         },
         Some(("server", _cm)) => {
             env_logger::Builder::new().filter(None, log::LevelFilter::Info).init();

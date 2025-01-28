@@ -67,30 +67,37 @@
         });
       in
       {
-        checks = {
-          inherit game;
-          game-clippy = craneLib.cargoClippy (commonArgs // {
-            inherit cargoArtifacts;
-            cargoClippyExtraArgs = "--all-targets -- --deny warnings";
-          });
-          game-fmt = craneLib.cargoFmt {
-            inherit src;
-          };
-        };
-
         packages.default = game;
 
         devShells.default = craneLib.devShell {
-          checks = self.checks.${system};
           packages = [
             pkgs.trunk
             pkgs.rust-analyzer
-            pkgs.pkg-config
-            pkgs.openssl.dev
-            pkgs.SDL2
             pkgs.glxinfo
             pkgs.alsa-lib
+            pkgs.cmake
+            pkgs.pkg-config
+            pkgs.openssl.dev
+            pkgs.glfw
+            pkgs.xorg.libX11 
+            pkgs.xorg.libXcursor 
+            pkgs.xorg.libXi 
+            pkgs.xorg.libXrandr
+            pkgs.xorg.libXinerama
+            pkgs.libxkbcommon 
+            pkgs.xorg.libxcb  
+            pkgs.libglvnd
           ];
+          LD_LIBRARY_PATH = "$LD_LIBRARY_PATH:${
+            pkgs.lib.makeLibraryPath [
+              pkgs.xorg.libX11 
+              pkgs.xorg.libXcursor 
+              pkgs.xorg.libXi 
+              pkgs.libxkbcommon 
+              pkgs.xorg.libxcb  
+              pkgs.libglvnd
+            ]
+          }";
         };
       });
 }

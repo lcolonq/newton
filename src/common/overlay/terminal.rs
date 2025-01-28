@@ -15,27 +15,6 @@ impl std::ops::Add for Pos {
     fn add(self, rhs: Self) -> Self { Self {x: self.x + rhs.x, y: self.y + rhs.y } }
 }
 
-pub struct Layer<T> {
-    pub data: [T; WIDTH * HEIGHT],
-}
-impl<T> Layer<T> {
-    pub fn new() -> Self where T: Default {
-        Self {
-            data: [(); WIDTH * HEIGHT].map(|_| T::default()),
-        }
-    }
-    pub fn get(&self, p: Pos) -> Option<&T> {
-        if p.x < 0 || p.x >= WIDTH as _ || p.y < 0 || p.y >= HEIGHT as _ { return None }
-        let idx = p.x  as usize + p.y as usize * WIDTH;
-        Some(&self.data[idx])
-    }
-}
-impl Layer<glam::Vec3> {
-    pub fn from_framebuffer(&mut self, ctx: &context::Context, fb: &framebuffer::Framebuffer) {
-        fb.get_pixels(ctx, &mut self.data);
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct CharPair {
     pub first: char,
@@ -50,6 +29,46 @@ impl Default for CharPair {
     }
 }
 
+pub struct Layer<T> {
+    pub data: [T; WIDTH * HEIGHT],
+}
+impl<T> Layer<T> {
+    pub fn new() -> Self where T: Default {
+        Self {
+            data: [(); WIDTH * HEIGHT].map(|_| T::default()),
+        }
+    }
+    pub fn get(&self, p: Pos) -> Option<&T> {
+        if p.x < 0 || p.x >= WIDTH as _ || p.y < 0 || p.y >= HEIGHT as _ { return None }
+        let idx = p.x as usize + p.y as usize * WIDTH;
+        Some(&self.data[idx])
+    }
+    pub fn set(&mut self, p: Pos, x: T) {
+        if p.x < 0 || p.x >= WIDTH as _ || p.y < 0 || p.y >= HEIGHT as _ { return }
+        let idx = p.x as usize + p.y as usize * WIDTH;
+        self.data[idx] = x;
+    }
+}
+impl Layer<CharPair> {
+    pub fn from_str(&mut self, s: &str) {
+        let chars: Vec<char> = s.chars().collect();
+        if chars.is_empty() { return }
+        let mut i: usize = 0;
+        for row in 0..64 {
+            for col in 0..64 {
+                let first = chars[i]; i += 1; i %= chars.len();
+                let second = Some(chars[i]); i += 1; i %= chars.len();
+                self.set(Pos::new(col, row), CharPair { first, second });
+            }
+        }
+    }
+}
+impl Layer<glam::Vec3> {
+    pub fn from_framebuffer(&mut self, ctx: &context::Context, fb: &framebuffer::Framebuffer) {
+        fb.get_pixels(ctx, &mut self.data);
+    }
+}
+
 pub struct Terminal {
     pub font: font::Bitmap,
     pub base_color: Layer<glam::Vec3>,
@@ -58,11 +77,13 @@ pub struct Terminal {
 }
 impl Terminal {
     pub fn new(ctx: &context::Context) -> Self {
+        let mut set_char = Layer::new();
+        set_char.from_str("lcolonq");
         Self {
             font: font::Bitmap::from_image(ctx, 6, 12, 96, 72, include_bytes!("assets/fonts/terminus.png")),
             base_color: Layer::new(),
             set_color: Layer::new(),
-            set_char: Layer::new(),
+            set_char,
         }
     }
     pub fn get_color(&self, pos: Pos) -> glam::Vec3 {
@@ -74,6 +95,9 @@ impl Terminal {
     }
     pub fn update(&mut self, ctx: &context::Context, fb: &framebuffer::Framebuffer) {
         self.base_color.from_framebuffer(ctx, fb);
+    }
+    pub fn fill_string(&mut self, s: &str) {
+        self.set_char.from_str(s);
     }
     pub fn render(&self, ctx: &context::Context, pos: &glam::Vec2) {
         let mut s = String::new();
