@@ -2717,6 +2717,7 @@ dependencies = [
  "reqwest",
  "serde",
  "tobj",
+ "tokio",
  "tracing-wasm",
  "wasm-bindgen",
  "wasm-bindgen-futures",
