@@ -16,6 +16,7 @@ pub struct Overlay {
     terminal: terminal::Terminal,
     fig: fig::Client,
     tracking_eyes: (f32, f32),
+    tracking_mouth: f32,
     tracking_neck: glam::Quat,
 }
 
@@ -44,6 +45,7 @@ impl Overlay {
                 sexp!((avatar tracking)),
             ]),
             tracking_eyes: (1.0, 1.0),
+            tracking_mouth: 0.0,
             tracking_neck: glam::Quat::IDENTITY,
         }
     }
@@ -51,11 +53,13 @@ impl Overlay {
         let eyes = msg.data.get(0)?;
         let eye_left = eyes.get(0)?.as_str()?.parse::<f32>().ok()?;
         let eye_right = eyes.get(1)?.as_str()?.parse::<f32>().ok()?;
-        let euler = msg.data.get(1)?;
+        let mouth = msg.data.get(1)?.as_str()?.parse::<f32>().ok()?;
+        let euler = msg.data.get(2)?;
         let euler_x = euler.get(0)?.as_str()?.parse::<f32>().ok()?.to_radians();
         let euler_y = PI - euler.get(1)?.as_str()?.parse::<f32>().ok()?.to_radians();
         let euler_z = euler.get(2)?.as_str()?.parse::<f32>().ok()?.to_radians() + PI/2.0;
         self.tracking_eyes = (eye_left, eye_right);
+        self.tracking_mouth = mouth;
         self.tracking_neck = glam::Quat::from_euler(glam::EulerRot::XYZ, euler_x, euler_y, euler_z);
         Some(())
     }
