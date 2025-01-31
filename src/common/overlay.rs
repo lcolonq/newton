@@ -7,6 +7,7 @@ use teleia::*;
 
 use std::{collections::HashMap, f32::consts::PI};
 use lexpr::sexp;
+use base64::prelude::*;
 
 pub struct Overlay {
     assets: assets::Assets,
@@ -64,8 +65,22 @@ impl Overlay {
         Some(())
     }
     pub fn handle_text(&mut self, msg: fig::Message) -> Option<()> {
-        let s = msg.data.get(0)?.as_str()?;
-        self.terminal.fill_string(s);
+        let s = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
+        self.terminal.fill_string(std::str::from_utf8(&s).ok()?);
+        Some(())
+    }
+    pub fn handle_frame(&mut self, msg: fig::Message) -> Option<()> {
+        let data = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
+        for (i, c) in data.chunks_exact(3).enumerate() {
+            if let [r, g, b] = c {
+                let ii = i as i32;
+                let p = terminal::Pos::new(ii % 64, ii / 64);
+                self.terminal.set_color.set(
+                    p,
+                    glam::Vec3::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0)
+                );
+            }
+        }
         Some(())
     }
 }
@@ -95,6 +110,8 @@ impl teleia::state::Game for Overlay {
                 if self.handle_tracking(msg).is_none() { log::warn!("{}", malformed) }
             } else if msg.event == sexp!((avatar text)) {
                 if self.handle_text(msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar frame)) {
+                if self.handle_frame(msg).is_none() { log::warn!("{}", malformed) }
             } else {
                 log::info!("received unhandled event {} with data: {}", msg.event, msg.data);
             }
@@ -106,19 +123,19 @@ impl teleia::state::Game for Overlay {
     }
     fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
         self.model_fb.bind(ctx);
-        ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 1.0));
+        ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
         ctx.clear();
         st.bind_3d(ctx, &self.assets.shader_scene);
         self.assets.shader_scene.set_position_3d(
             ctx,
             &glam::Mat4::from_translation(
-                glam::Vec3::new(0.0, -1.6, 0.5),
+                glam::Vec3::new(0.0, -1.63, 0.42),
             ),
         );
         self.model.render(ctx, &self.assets.shader_scene);
         st.render_framebuffer.bind(ctx);
         self.terminal.update(ctx, &self.model_fb);
-        self.terminal.render(ctx, &glam::Vec2::new(400.0, 200.0));
+        self.terminal.render(ctx, &glam::Vec2::new(12.0, 250.0));
         // self.model_fb.blit(
         //     ctx, &st.render_framebuffer,
         //     &glam::Vec2::new(ctx.render_width / 2.0 - 512.0, ctx.render_height / 2.0 - 512.0),

@@ -67,6 +67,25 @@ impl Layer<glam::Vec3> {
     pub fn from_framebuffer(&mut self, ctx: &context::Context, fb: &framebuffer::Framebuffer) {
         fb.get_pixels(ctx, &mut self.data);
     }
+    pub fn get_surrounding(&self, pos: Pos, bgcolor: &glam::Vec3) -> u8 {
+        let offs = [
+            Pos::new(-1, -1),
+            Pos::new(0, -1),
+            Pos::new(1, -1),
+            Pos::new(-1, 0),
+            Pos::new(1, 0),
+            Pos::new(-1, 1),
+            Pos::new(0, 1),
+            Pos::new(1, 1),
+        ];
+        let mut ret = 0;
+        for o in offs {
+            ret <<= 1;
+            let v = (self.get(pos + o) != Some(bgcolor)) as u8;
+            ret |= v;
+        }
+        ret
+    }
 }
 
 pub struct Terminal {
@@ -87,11 +106,17 @@ impl Terminal {
         }
     }
     pub fn get_color(&self, pos: Pos) -> glam::Vec3 {
-        if let Some(c) = self.base_color.get(pos) {
-            c.clone()
-        } else {
-            glam::Vec3::new(1.0, 1.0, 1.0)
+        if let Some(c) = self.set_color.get(pos) {
+            if *c != glam::Vec3::new(0.0, 0.0, 0.0) {
+                return *c;
+            }
         }
+        if let Some(c) = self.base_color.get(pos) {
+            if *c != glam::Vec3::new(0.0, 0.0, 0.0) {
+                return *c;
+            }
+        }
+        glam::Vec3::new(0.0, 0.0, 0.0)
     }
     pub fn update(&mut self, ctx: &context::Context, fb: &framebuffer::Framebuffer) {
         self.base_color.from_framebuffer(ctx, fb);
@@ -99,20 +124,40 @@ impl Terminal {
     pub fn fill_string(&mut self, s: &str) {
         self.set_char.from_str(s);
     }
+    pub fn outline_pattern(&self, pos: Pos) -> Option<String> {
+        let sur = self.base_color.get_surrounding(pos, &glam::Vec3::new(0.0, 0.0, 0.0));
+        let res = match sur {
+            0b01101011 | 0b01101111 => " |",
+            0b11010110 | 0b11010111 => "| ",
+            0b00101011 | 0b00101111 | 0b00101110 | 0b00101100 | 0b00001011 => " /",
+            0b10010110 | 0b10010111 | 0b10010011 | 0b10010001 | 0b00010110 => "\\ ",
+            0b00111111 => "-/", 0b10011111 => "\\-",
+            0b00011111 => "--", 0b00000111 => "__",
+            0b00001111 => " _", 0b00010111 => "_ ",
+            _ => return None,
+        };
+        Some(res.to_owned())
+    }
     pub fn render(&self, ctx: &context::Context, pos: &glam::Vec2) {
         let mut s = String::new();
         let mut colors = Vec::new();
         for row in 0..64 {
             for col in 0..64 {
                 let pos = Pos::new(col, row);
+                let c = self.get_color(pos);
+                colors.push(c); colors.push(c);
                 let new = if let Some(p) = self.set_char.get(pos) {
-                    format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' })
+                    if c == glam::Vec3::new(0.0, 0.0, 0.0) {
+                        String::from("  ")
+                    } else if let Some(pat) = self.outline_pattern(pos) {
+                        pat
+                    } else {
+                        format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' })
+                    }
                 } else {
                     String::from("  ")
                 };
                 s += &new;
-                let c = self.get_color(pos);
-                colors.push(c); colors.push(c);
             }
             s += "\n";
             colors.push(glam::Vec3::new(1.0, 1.0, 1.0));

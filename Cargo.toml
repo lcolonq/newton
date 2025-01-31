@@ -38,3 +38,4 @@ wasm-bindgen-futures = "*" # interface with async javascript
 env_logger = "*"
 tokio = { version = "*", features = ["full"] }
 clap = { version = "*", features = ["cargo"] }
+base64 = "0.22.1"
