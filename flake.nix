@@ -14,9 +14,13 @@
         flake-utils.follows = "flake-utils";
       };
     };
+    st = {
+      url = "github:lcolonq/st";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, crane, flake-utils, rust-overlay, nixpkgs-for-wasm-bindgen, ... }:
+  outputs = { self, nixpkgs, crane, flake-utils, rust-overlay, st, nixpkgs-for-wasm-bindgen, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
@@ -67,7 +71,10 @@
         });
       in
       {
-        packages.default = game;
+        packages = {
+          default = game;
+          inherit st;
+        };
 
         devShells.default = craneLib.devShell {
           packages = [

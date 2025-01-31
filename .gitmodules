@@ -1,3 +1,0 @@
-[submodule "deps/st"]
-	path = deps/st
-	url = git@github.com:lcolonq/st.git
