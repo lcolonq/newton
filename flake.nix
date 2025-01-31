@@ -73,7 +73,7 @@
       {
         packages = {
           default = game;
-          inherit st;
+          st = st.packages.x86_64-linux.st;
         };
 
         devShells.default = craneLib.devShell {

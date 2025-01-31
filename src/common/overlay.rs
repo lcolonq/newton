@@ -4,12 +4,19 @@ mod terminal;
 mod fig;
 
 use teleia::*;
+use termion::raw::IntoRawMode;
 
 use std::{collections::HashMap, f32::consts::PI};
 use lexpr::sexp;
 use base64::prelude::*;
 
+pub enum RenderMode {
+    Overlay,
+    Terminal(termion::raw::RawTerminal<std::io::Stdout>),
+}
+
 pub struct Overlay {
+    mode: RenderMode,
     assets: assets::Assets,
     model: scene::Scene,
     model_neck_base: glam::Mat4,
@@ -22,13 +29,14 @@ pub struct Overlay {
 }
 
 impl Overlay {
-    pub async fn new(ctx: &context::Context) -> Self {
+    pub async fn new(ctx: &context::Context, mode: RenderMode) -> Self {
         let model = scene::Scene::from_gltf(ctx, include_bytes!("overlay/assets/scenes/lcolonq.vrm")); 
         let model_neck_base = model.nodes_by_name.get("J_Bip_C_Neck")
             .and_then(|i| model.nodes.get(*i))
             .expect("failed to find neck joint")
             .transform;
         Self {
+            mode,
             assets: assets::Assets::new(ctx),
             model,
             model_neck_base,
@@ -49,6 +57,13 @@ impl Overlay {
             tracking_mouth: 0.0,
             tracking_neck: glam::Quat::IDENTITY,
         }
+    }
+    pub async fn overlay(ctx: &context::Context) -> Self {
+        Self::new(ctx, RenderMode::Overlay).await
+    }
+    pub async fn terminal(ctx: &context::Context) -> Self {
+        let raw_stdout = std::io::stdout().into_raw_mode().expect("failed to set raw mode");
+        Self::new(ctx, RenderMode::Terminal(raw_stdout)).await
     }
     pub fn handle_tracking(&mut self, msg: fig::Message) -> Option<()> {
         let eyes = msg.data.get(0)?;
@@ -135,7 +150,14 @@ impl teleia::state::Game for Overlay {
         self.model.render(ctx, &self.assets.shader_scene);
         st.render_framebuffer.bind(ctx);
         self.terminal.update(ctx, &self.model_fb);
-        self.terminal.render(ctx, &glam::Vec2::new(12.0, 250.0));
+        match &mut self.mode {
+            RenderMode::Overlay => {
+                self.terminal.render(ctx, &glam::Vec2::new(12.0, 250.0));
+            },
+            RenderMode::Terminal(stdout) => if st.tick % 10 == 0 {
+                self.terminal.write_tty(stdout);
+            },
+        }
         // self.model_fb.blit(
         //     ctx, &st.render_framebuffer,
         //     &glam::Vec2::new(ctx.render_width / 2.0 - 512.0, ctx.render_height / 2.0 - 512.0),

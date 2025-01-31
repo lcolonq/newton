@@ -76,7 +76,8 @@
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
         "nixpkgs-for-wasm-bindgen": "nixpkgs-for-wasm-bindgen",
-        "rust-overlay": "rust-overlay"
+        "rust-overlay": "rust-overlay",
+        "st": "st"
       }
     },
     "rust-overlay": {
@@ -96,6 +97,26 @@
       "original": {
         "owner": "oxalica",
         "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "st": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1738300089,
+        "narHash": "sha256-kcLup2C1MlD/yiN7quujBSGfEH6356QggnqI+sVQHR4=",
+        "owner": "lcolonq",
+        "repo": "st",
+        "rev": "e982b1d75eda54ab6b3051675fb21d32b3731bb5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lcolonq",
+        "repo": "st",
         "type": "github"
       }
     },

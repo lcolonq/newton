@@ -1,3 +1,6 @@
+use std::io::Write;
+use colored::Colorize;
+
 use teleia::*;
 
 pub const WIDTH: usize = 64;
@@ -163,5 +166,33 @@ impl Terminal {
             colors.push(glam::Vec3::new(1.0, 1.0, 1.0));
         }
         self.font.render_text_helper(ctx, pos, &s, &colors);
+    }
+    pub fn write_tty<W>(&self, out: &mut W)
+    where W: Write {
+        let mut output: Vec<u8> = Vec::new();
+        write!(output, "\x1b[2J\x1b[1;1H").expect("failed to write output");
+        for row in 0..64 {
+            for col in 0..64 {
+                let pos = Pos::new(col, row);
+                let c = self.get_color(pos);
+                let new = if let Some(p) = self.set_char.get(pos) {
+                    if c == glam::Vec3::new(0.0, 0.0, 0.0) {
+                        String::from("  ")
+                    } else if let Some(pat) = self.outline_pattern(pos) {
+                        pat
+                    } else {
+                        format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' })
+                    }
+                } else {
+                    String::from("  ")
+                };
+                write!(
+                    output, "{}",
+                    new.truecolor((c.x * 255.0) as u8, (c.y * 255.0) as u8, (c.z * 255.0) as u8)
+                ).unwrap();
+            }
+            write!(output, "\r\n").unwrap();
+        }
+        out.write(&output).expect("failed to write to terminal");
     }
 }

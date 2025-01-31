@@ -15,7 +15,11 @@ pub async fn main() {
         .arg_required_else_help(true)
         .subcommand(
             Command::new("overlay")
-                .about("Run the LCOLONQ model renderer / overlay")
+                .about("Run the LCOLONQ model renderer in a full-screen transparent overlay")
+        )
+        .subcommand(
+            Command::new("terminal")
+                .about("Run the LCOLONQ model renderer in a terminal")
         )
         .subcommand(
             Command::new("server")
@@ -24,7 +28,10 @@ pub async fn main() {
         .get_matches();
     match matches.subcommand() {
         Some(("overlay", _cm)) => {
-            teleia::run("LCOLONQ", 1920, 1080, true, common::overlay::Overlay::new).await;
+            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, common::overlay::Overlay::overlay).await;
+        },
+        Some(("terminal", _cm)) => {
+            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::HIDDEN, common::overlay::Overlay::terminal).await;
         },
         Some(("server", _cm)) => {
             env_logger::Builder::new().filter(None, log::LevelFilter::Info).init();
