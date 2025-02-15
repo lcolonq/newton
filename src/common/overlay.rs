@@ -2,6 +2,7 @@
 mod assets;
 mod terminal;
 mod fig;
+mod throwshade;
 
 use teleia::*;
 use termion::raw::IntoRawMode;
@@ -26,6 +27,7 @@ pub struct Overlay {
     tracking_eyes: (f32, f32),
     tracking_mouth: f32,
     tracking_neck: glam::Quat,
+    throwshade: throwshade::ThrowShade,
 }
 
 impl Overlay {
@@ -52,10 +54,12 @@ impl Overlay {
                 sexp!((avatar frame)),
                 sexp!((avatar reset)),
                 sexp!((avatar tracking)),
+                sexp!((overlay shader)),
             ]),
             tracking_eyes: (1.0, 1.0),
             tracking_mouth: 0.0,
             tracking_neck: glam::Quat::IDENTITY,
+            throwshade: throwshade::ThrowShade::new(),
         }
     }
     pub async fn overlay(ctx: &context::Context) -> Self {
@@ -98,6 +102,41 @@ impl Overlay {
         }
         Some(())
     }
+    pub fn handle_shader(&mut self, ctx: &context::Context, msg: fig::Message) -> Option<()> {
+        let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
+        let s = String::from_utf8_lossy(&bs);
+        self.throwshade.set(ctx, &s);
+        Some(())
+    }
+    fn render_model_terminal(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
+        self.model_fb.bind(ctx);
+        ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
+        ctx.clear();
+        st.bind_3d(ctx, &self.assets.shader_scene);
+        self.assets.shader_scene.set_position_3d(
+            ctx,
+            &glam::Mat4::from_translation(
+                glam::Vec3::new(0.0, -1.63, 0.42),
+            ),
+        );
+        self.model.render(ctx, &self.assets.shader_scene);
+        st.render_framebuffer.bind(ctx);
+        self.terminal.update(ctx, &self.model_fb);
+        match &mut self.mode {
+            RenderMode::Overlay => {
+                self.terminal.render(ctx, &glam::Vec2::new(12.0, 250.0));
+            },
+            RenderMode::Terminal(stdout) => if st.tick % 10 == 0 {
+                self.terminal.write_tty(stdout);
+            },
+        }
+        // self.model_fb.blit(
+        //     ctx, &st.render_framebuffer,
+        //     &glam::Vec2::new(ctx.render_width / 2.0 - 512.0, ctx.render_height / 2.0 - 512.0),
+        //     &glam::Vec2::new(128.0, 128.0)
+        // );
+        Some(())
+    }
 }
 
 impl teleia::state::Game for Overlay {
@@ -127,6 +166,8 @@ impl teleia::state::Game for Overlay {
                 if self.handle_text(msg).is_none() { log::warn!("{}", malformed) }
             } else if msg.event == sexp!((avatar frame)) {
                 if self.handle_frame(msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((overlay shader)) {
+                if self.handle_shader(ctx, msg).is_none() { log::warn!("{}", malformed) }
             } else {
                 log::info!("received unhandled event {} with data: {}", msg.event, msg.data);
             }
@@ -137,32 +178,10 @@ impl teleia::state::Game for Overlay {
         Some(())
     }
     fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
-        self.model_fb.bind(ctx);
-        ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
-        ctx.clear();
-        st.bind_3d(ctx, &self.assets.shader_scene);
-        self.assets.shader_scene.set_position_3d(
-            ctx,
-            &glam::Mat4::from_translation(
-                glam::Vec3::new(0.0, -1.63, 0.42),
-            ),
-        );
-        self.model.render(ctx, &self.assets.shader_scene);
-        st.render_framebuffer.bind(ctx);
-        self.terminal.update(ctx, &self.model_fb);
-        match &mut self.mode {
-            RenderMode::Overlay => {
-                self.terminal.render(ctx, &glam::Vec2::new(12.0, 250.0));
-            },
-            RenderMode::Terminal(stdout) => if st.tick % 10 == 0 {
-                self.terminal.write_tty(stdout);
-            },
+        if let Some(s) = &self.throwshade.shader {
+            s.bind(ctx);
+            ctx.render_no_geometry();
         }
-        // self.model_fb.blit(
-        //     ctx, &st.render_framebuffer,
-        //     &glam::Vec2::new(ctx.render_width / 2.0 - 512.0, ctx.render_height / 2.0 - 512.0),
-        //     &glam::Vec2::new(128.0, 128.0)
-        // );
         Some(())
     }
 }
