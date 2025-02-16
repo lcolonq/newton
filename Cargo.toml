@@ -42,5 +42,4 @@ env_logger = "*"
 tokio = { version = "*", features = ["full"] }
 clap = { version = "*", features = ["cargo"] }
 base64 = "0.22.1"
-colored = "2.2.0"
 termion = "*"

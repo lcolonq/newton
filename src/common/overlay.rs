@@ -154,9 +154,11 @@ impl Overlay {
         self.terminal.update(ctx, &self.model_fb);
         match &mut self.mode {
             RenderMode::Overlay => {
+                ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
+                ctx.clear();
                 self.terminal.render(ctx, &glam::Vec2::new(12.0, 250.0));
             },
-            RenderMode::Terminal(stdout) => if st.tick % 10 == 0 {
+            RenderMode::Terminal(stdout) => if st.tick % 6 == 0 {
                 self.terminal.write_tty(stdout);
             },
         }

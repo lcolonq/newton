@@ -1,5 +1,4 @@
-use std::io::Write;
-use colored::Colorize;
+use std::{collections::HashMap, io::Write};
 
 use teleia::*;
 
@@ -91,41 +90,68 @@ impl Layer<glam::Vec3> {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum PaletteType {
+    Hair,
+    Eyes,
+    Skin,
+    Highlight,
+    Eyebags,
+}
+impl PaletteType {
+    pub fn from_string(s: &str) -> Option<Self> {
+        match s {
+            "hair" => Some(Self::Hair),
+            "eyes" => Some(Self::Eyes),
+            "skin" => Some(Self::Skin),
+            "highlight" => Some(Self::Highlight),
+            "eyebags" => Some(Self::Eyebags),
+            _ => None,
+        }
+    }
+    pub fn from_color(c: &glam::Vec3) -> Option<Self> {
+        let r = (c.x * 255.0) as u8;
+        let g = (c.y * 255.0) as u8;
+        let b = (c.z * 255.0) as u8;
+        if r >= 186 && r <= 188 && g >= 176 && g <= 178 && b >= 189 && b <= 191 {
+            Some(Self::Hair)
+        } else if r >= 158 && r <= 162 && g >= 148 && g <= 152 && b >= 159 && b <= 162 {
+            Some(Self::Highlight)
+        } else if g > r && g > b {
+            Some(Self::Eyes)
+        } else if r >= 242 && r <= 246 && g >= 238 && g <= 242 && b >= 234 && b <= 238 {
+            Some(Self::Skin)
+        } else if r == 182 && g == 142 && b == 139 {
+            Some(Self::Eyebags)
+        } else {
+            None
+        }
+    }
+}
+
+pub struct PaletteEntry {
+    pub color: Layer<glam::Vec3>,
+    pub char: Layer<CharPair>,
+}
+
 pub struct Terminal {
     pub font: font::Bitmap,
     pub base_color: Layer<glam::Vec3>,
-    pub set_color: Layer<glam::Vec3>,
-    pub set_char: Layer<CharPair>,
+    pub palette: HashMap<PaletteType, PaletteEntry>,
 }
 impl Terminal {
     pub fn new(ctx: &context::Context) -> Self {
-        let mut set_char = Layer::new();
-        set_char.from_str("lcolonq");
         Self {
             font: font::Bitmap::from_image(ctx, 6, 12, 96, 72, include_bytes!("assets/fonts/terminus.png")),
             base_color: Layer::new(),
-            set_color: Layer::new(),
-            set_char,
+            palette: HashMap::new(),
         }
-    }
-    pub fn get_color(&self, pos: Pos) -> glam::Vec3 {
-        if let Some(c) = self.set_color.get(pos) {
-            if *c != glam::Vec3::new(0.0, 0.0, 0.0) {
-                return *c;
-            }
-        }
-        if let Some(c) = self.base_color.get(pos) {
-            if *c != glam::Vec3::new(0.0, 0.0, 0.0) {
-                return *c;
-            }
-        }
-        glam::Vec3::new(0.0, 0.0, 0.0)
     }
     pub fn update(&mut self, ctx: &context::Context, fb: &framebuffer::Framebuffer) {
         self.base_color.from_framebuffer(ctx, fb);
     }
     pub fn fill_string(&mut self, s: &str) {
-        self.set_char.from_str(s);
+        // self.set_char.from_str(s);
     }
     pub fn outline_pattern(&self, pos: Pos) -> Option<String> {
         let sur = self.base_color.get_surrounding(pos, &glam::Vec3::new(0.0, 0.0, 0.0));
@@ -140,6 +166,27 @@ impl Terminal {
             _ => return None,
         };
         Some(res.to_owned())
+    }
+    pub fn get(&self, pos: Pos) -> (CharPair, glam::Vec3) {
+        if let Some(c) = self.base_color.get(pos) {
+            if *c != glam::Vec3::new(0.0, 0.0, 0.0) {
+                return *c;
+            }
+        }
+        let c = self.get_color(pos);
+        colors.push(c); colors.push(c);
+        let new = if let Some(p) = self.set_char.get(pos) {
+            if c == glam::Vec3::new(0.0, 0.0, 0.0) {
+                String::from("  ")
+            } else if let Some(pat) = self.outline_pattern(pos) {
+                pat
+            } else {
+                format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' })
+            }
+        } else {
+            String::from("  ")
+        };
+        glam::Vec3::new(0.0, 0.0, 0.0)
     }
     pub fn render(&self, ctx: &context::Context, pos: &glam::Vec2) {
         let mut s = String::new();
@@ -187,8 +234,14 @@ impl Terminal {
                     String::from("  ")
                 };
                 write!(
-                    output, "{}",
-                    new.truecolor((c.x * 255.0) as u8, (c.y * 255.0) as u8, (c.z * 255.0) as u8)
+                    output, "{}{}",
+                    termion::color::Fg(
+                        termion::color::Rgb(
+                            (c.x * 255.0) as u8,
+                            (c.y * 255.0) as u8,
+                            (c.z * 255.0) as u8),
+                    ),
+                    new
                 ).unwrap();
             }
             write!(output, "\r\n").unwrap();
