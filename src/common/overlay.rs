@@ -28,6 +28,9 @@ pub struct Overlay {
     tracking_mouth: f32,
     tracking_neck: glam::Quat,
     throwshade: throwshade::ThrowShade,
+    chat_msg: String,
+    chat_time: f64,
+    chat_biblicality: f32,
 }
 
 impl Overlay {
@@ -54,12 +57,16 @@ impl Overlay {
                 sexp!((avatar frame)),
                 sexp!((avatar reset)),
                 sexp!((avatar tracking)),
-                sexp!((overlay shader)),
+                sexp!((avatar overlay shader)),
+                sexp!((avatar overlay chat)),
             ]),
             tracking_eyes: (1.0, 1.0),
             tracking_mouth: 0.0,
             tracking_neck: glam::Quat::IDENTITY,
             throwshade: throwshade::ThrowShade::new(),
+            chat_msg: format!(""),
+            chat_time: 0.0,
+            chat_biblicality: 0.0,
         }
     }
     pub async fn overlay(ctx: &context::Context) -> Self {
@@ -68,6 +75,11 @@ impl Overlay {
     pub async fn terminal(ctx: &context::Context) -> Self {
         let raw_stdout = std::io::stdout().into_raw_mode().expect("failed to set raw mode");
         Self::new(ctx, RenderMode::Terminal(raw_stdout)).await
+    }
+    pub fn handle_reset(&mut self, ctx: &context::Context ) {
+        // TODO also reset terminal
+        if let Some(s) = &mut self.throwshade.shader { s.delete(ctx); }
+        self.throwshade.shader = None;
     }
     pub fn handle_tracking(&mut self, msg: fig::Message) -> Option<()> {
         let eyes = msg.data.get(0)?;
@@ -102,10 +114,28 @@ impl Overlay {
         }
         Some(())
     }
-    pub fn handle_shader(&mut self, ctx: &context::Context, msg: fig::Message) -> Option<()> {
+    pub fn handle_overlay_shader(
+        &mut self,
+        ctx: &context::Context, st: &state::State,
+        msg: fig::Message
+    ) -> Option<()> {
         let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
         let s = String::from_utf8_lossy(&bs);
-        self.throwshade.set(ctx, &s);
+        if let Err(e) = self.throwshade.set(ctx, st, &s) {
+            log::warn!("error compiling shader: {}", e);
+            self.throwshade.shader = None;
+        }
+        Some(())
+    }
+    pub fn handle_overlay_chat(&mut self, msg: fig::Message) -> Option<()> {
+        let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
+        let s = String::from_utf8_lossy(&bs);
+        let time = msg.data.get(1)?.as_str()?.parse::<f64>().ok()?;
+        let biblicality = msg.data.get(2)?.as_str()?.parse::<f32>().ok()?;
+        log::info!("received chat message: {} {} {}", s, time, biblicality);
+        self.chat_msg = s.to_string();
+        self.chat_time = time;
+        self.chat_biblicality = biblicality;
         Some(())
     }
     fn render_model_terminal(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
@@ -162,12 +192,16 @@ impl teleia::state::Game for Overlay {
             let malformed = format!("malformed {} data: {}", msg.event, msg.data);
             if msg.event == sexp!((avatar tracking)) {
                 if self.handle_tracking(msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar reset)) {
+                self.handle_reset(ctx);
             } else if msg.event == sexp!((avatar text)) {
                 if self.handle_text(msg).is_none() { log::warn!("{}", malformed) }
             } else if msg.event == sexp!((avatar frame)) {
                 if self.handle_frame(msg).is_none() { log::warn!("{}", malformed) }
-            } else if msg.event == sexp!((overlay shader)) {
-                if self.handle_shader(ctx, msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay shader)) {
+                if self.handle_overlay_shader(ctx, st, msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay chat)) {
+                if self.handle_overlay_chat(msg).is_none() { log::warn!("{}", malformed) }
             } else {
                 log::info!("received unhandled event {} with data: {}", msg.event, msg.data);
             }
@@ -180,6 +214,10 @@ impl teleia::state::Game for Overlay {
     fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
         if let Some(s) = &self.throwshade.shader {
             s.bind(ctx);
+            s.set_vec2(ctx, "resolution", &glam::Vec2::new(ctx.render_width, ctx.render_height));
+            let elapsed = (st.tick - self.throwshade.tickset) as f32 / 60.0;
+            s.set_f32(ctx, "time", elapsed);
+            s.set_f32(ctx, "chat_time", (self.chat_time - self.throwshade.timeset) as f32);
             ctx.render_no_geometry();
         }
         Some(())
