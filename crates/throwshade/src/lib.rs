@@ -51,7 +51,7 @@ cfg_if::cfg_if! {
         use wasm_bindgen::prelude::*;
         #[wasm_bindgen]
         pub async fn main_js() {
-            teleia::run(480, 270, Game::new).await;
+            teleia::run(480, 270, teleia::Options::NORESIZE, Game::new).await;
         }
     }
 }
