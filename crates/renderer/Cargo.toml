@@ -1,0 +1,28 @@
+[package]
+name = "renderer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "newton_renderer"
+path = "src/main.rs"
+
+[dependencies]
+# teleia = { path = "../teleia" } # engine
+teleia = { git = "https://github.com/lcolonq/teleia" } # engine
+throwshade = { path = "../throwshade" }
+glam = "*" # linear algebra
+glow = "*" # gl bindings
+bitflags = "*" # C-style bitwise flags
+rand = "=0.8.5" # rng
+log = "*" # logging
+env_logger = "*" # native logging
+lazy_static = "*" # global constants
+strum = {version = "*", features = ["derive"]} # utility macros for enums
+lexpr = "*" # s-expression parsing
+tokio = { version = "*", features = ["full"] } # async runtime
+clap = { version = "*", features = ["cargo"] } # cli arg parsing
+base64 = "0.22.1" # base64 encoding/decoding
+polling = "*" # polling sockets 
+termion = "*" # terminal escapes

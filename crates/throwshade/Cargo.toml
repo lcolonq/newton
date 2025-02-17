@@ -1,0 +1,22 @@
+[package]
+name = "throwshade"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# teleia = { path = "../teleia" } # engine
+teleia = { git = "https://github.com/lcolonq/teleia" } # engine
+glam = "*" # linear algebra
+glow = "*" # gl bindings
+bitflags = "*" # C-style bitwise flags
+rand = "=0.8.5" # rng
+log = "*" # logging
+lazy_static = "*" # global constants
+strum = {version = "*", features = ["derive"]} # utility macros for enums
+wasm-bindgen = "*" # wasm bindings
+wasm-bindgen-futures = "*" # interface with async javascript
+cfg-if = "*" # less verbose cfg

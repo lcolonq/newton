@@ -31,3 +31,27 @@ impl ThrowShade {
         Ok(())
     }
 }
+
+cfg_if::cfg_if! {
+    if #[cfg(target_arch = "wasm32")] {
+        struct Game {}
+        impl Game {
+            pub async fn new(_ctx: &context::Context) -> Self {
+                Self {}
+            }
+        }
+        impl state::Game for Game {
+            fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
+                ctx.clear_color(glam::Vec4::new(1.0, 0.0, 0.0, 1.0));
+                ctx.clear();
+                Some(())
+            }
+        }
+
+        use wasm_bindgen::prelude::*;
+        #[wasm_bindgen]
+        pub async fn main_js() {
+            teleia::run(480, 270, Game::new).await;
+        }
+    }
+}

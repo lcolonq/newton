@@ -1,15 +1,14 @@
-[package]
-name = "newton_lib"
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
 version = "0.1.0"
-authors = ["LLLL Colonq <llll@colonq.computer>"]
 edition = "2021"
+authors = ["LLLL Colonq <llll@colonq.computer>"]
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
-[[bin]]
+[workspace.metadata.crane]
 name = "newton"
-path = "src/main.rs"
 
 [profile.release]
 opt-level = 2
@@ -20,26 +19,3 @@ strip = true
 
 [profile.dev.package."*"]
 opt-level = 2
-
-[dependencies]
-teleia = { path = "../teleia" } # engine
-glam = "*" # linear algebra
-glow = "*" # gl bindings
-bitflags = "*" # C-style bitwise flags
-rand = "*" # rng
-log = "*" # logging
-lazy_static = "*" # global constants
-strum = {version = "*", features = ["derive"]} # utility macros for enums
-polling = "*" # polling sockets 
-lexpr = "*" # s-expression parsing
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = "*" # wasm bindings
-wasm-bindgen-futures = "*" # interface with async javascript
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-env_logger = "*"
-tokio = { version = "*", features = ["full"] }
-clap = { version = "*", features = ["cargo"] }
-base64 = "0.22.1"
-termion = "*"

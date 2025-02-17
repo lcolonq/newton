@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <head>
+        <meta charset="UTF-8">
+        
+        <script type="module" src="helpers.js"></script>
+        
+<script type="module" nonce="kUiuFnryXCOUts112+yMlQ==">
+import init, * as bindings from '/newton_lib-d0ab149425934563.js';
+const wasm = await init('/newton_lib-d0ab149425934563_bg.wasm');
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+        <!-- <link data-trunk rel="rust" data-keep-debug="true" /> -->
+        <base href="/" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="white">
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#404040">
+        <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+        <link rel="stylesheet" href="/index-46f23791e06da50.css" integrity="sha384&#x2D;1PPhSwqzZ2&#x2B;FaWhk5PcR1CV&#x2B;T9Mk5R621V6AJko4lCcnOm&#x2F;Zoip0uWiFxGeoPyOL"/>
+        <title>World of L: Online</title>
+    
+<link rel="modulepreload" href="/newton_lib-d0ab149425934563.js" crossorigin=anonymous integrity="sha384-qZ3vlV1oUCtlqpyA8b5M9i6rexOdu9FoQrxmAdFWPYPehmXv5hxHmUpxQcQmoBsi">
+<link rel="preload" href="/newton_lib-d0ab149425934563_bg.wasm" crossorigin=anonymous integrity="sha384-tXRA09B6AK6FbgJD+b8c3eDJfXneLVNGtdyO53BlndftOl6c3ehwp8McygIkP4vK" as="fetch" type="application/wasm"></head>
+    <body>
+        <script>
+         addEventListener("TrunkApplicationStarted", async (event) => {
+             console.log("initialized, starting...");
+             window.wasmBindings.main_js();
+         });
+        </script>
+        <div id="teleia-parent"></div>
+    </body>
+</html>

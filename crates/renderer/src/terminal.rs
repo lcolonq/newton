@@ -137,13 +137,17 @@ pub struct PaletteEntry {
 pub struct Terminal {
     pub font: font::Bitmap,
     pub base_color: Layer<glam::Vec3>,
+    pub base_char: Layer<CharPair>,
     pub palette: HashMap<PaletteType, PaletteEntry>,
 }
 impl Terminal {
     pub fn new(ctx: &context::Context) -> Self {
+        let mut base_char = Layer::new();
+        base_char.from_str("lcolonq");
         Self {
             font: font::Bitmap::from_image(ctx, 6, 12, 96, 72, include_bytes!("assets/fonts/terminus.png")),
             base_color: Layer::new(),
+            base_char,
             palette: HashMap::new(),
         }
     }
@@ -151,7 +155,6 @@ impl Terminal {
         self.base_color.from_framebuffer(ctx, fb);
     }
     pub fn fill_string(&mut self, s: &str) {
-        // self.set_char.from_str(s);
     }
     pub fn outline_pattern(&self, pos: Pos) -> Option<String> {
         let sur = self.base_color.get_surrounding(pos, &glam::Vec3::new(0.0, 0.0, 0.0));
@@ -169,24 +172,26 @@ impl Terminal {
     }
     pub fn get(&self, pos: Pos) -> (CharPair, glam::Vec3) {
         if let Some(c) = self.base_color.get(pos) {
+            // if the pixel is black, show background instead 
             if *c != glam::Vec3::new(0.0, 0.0, 0.0) {
-                return *c;
+                let defaultp = CharPair { first: '#', second: Some('#') };
+                // otherwise, identify the palettetype (hair, eyes, etc.) correspond to
+                // this base color, and retrieve the appropriate data from that palette
+                // entry (if set)
+                if let Some(pty) = PaletteType::from_color(c) {
+                    if let Some(entry) = self.palette.get(&pty) {
+                        return (
+                            entry.char.get(pos).unwrap_or(&defaultp).clone(),
+                            entry.color.get(pos).unwrap_or(c).clone(),
+                        );
+                    }
+                }
+                // if there is no palette entry, return the character from the base
+                // palette (just "lcolonq" by default). if it doesn't exist, use ##
+                return (self.base_char.get(pos).unwrap_or(&defaultp).clone(), *c);
             }
         }
-        let c = self.get_color(pos);
-        colors.push(c); colors.push(c);
-        let new = if let Some(p) = self.set_char.get(pos) {
-            if c == glam::Vec3::new(0.0, 0.0, 0.0) {
-                String::from("  ")
-            } else if let Some(pat) = self.outline_pattern(pos) {
-                pat
-            } else {
-                format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' })
-            }
-        } else {
-            String::from("  ")
-        };
-        glam::Vec3::new(0.0, 0.0, 0.0)
+        return (CharPair { first: ' ', second: Some(' ') }, glam::Vec3::new(0.0, 0.0, 0.0));
     }
     pub fn render(&self, ctx: &context::Context, pos: &glam::Vec2) {
         let mut s = String::new();
@@ -194,20 +199,9 @@ impl Terminal {
         for row in 0..64 {
             for col in 0..64 {
                 let pos = Pos::new(col, row);
-                let c = self.get_color(pos);
+                let (p, c) = self.get(pos);
                 colors.push(c); colors.push(c);
-                let new = if let Some(p) = self.set_char.get(pos) {
-                    if c == glam::Vec3::new(0.0, 0.0, 0.0) {
-                        String::from("  ")
-                    } else if let Some(pat) = self.outline_pattern(pos) {
-                        pat
-                    } else {
-                        format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' })
-                    }
-                } else {
-                    String::from("  ")
-                };
-                s += &new;
+                s += &format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' });
             }
             s += "\n";
             colors.push(glam::Vec3::new(1.0, 1.0, 1.0));
@@ -221,18 +215,8 @@ impl Terminal {
         for row in 0..64 {
             for col in 0..64 {
                 let pos = Pos::new(col, row);
-                let c = self.get_color(pos);
-                let new = if let Some(p) = self.set_char.get(pos) {
-                    if c == glam::Vec3::new(0.0, 0.0, 0.0) {
-                        String::from("  ")
-                    } else if let Some(pat) = self.outline_pattern(pos) {
-                        pat
-                    } else {
-                        format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' })
-                    }
-                } else {
-                    String::from("  ")
-                };
+                let (p, c) = self.get(pos);
+                let new = format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' });
                 write!(
                     output, "{}{}",
                     termion::color::Fg(

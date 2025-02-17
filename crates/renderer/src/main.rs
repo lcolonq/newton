@@ -2,10 +2,10 @@
 mod assets;
 mod terminal;
 mod fig;
-mod throwshade;
 
 use teleia::*;
 use termion::raw::IntoRawMode;
+use clap::{command, Command};
 
 use std::{collections::HashMap, f32::consts::PI};
 use lexpr::sexp;
@@ -35,7 +35,7 @@ pub struct Overlay {
 
 impl Overlay {
     pub async fn new(ctx: &context::Context, mode: RenderMode) -> Self {
-        let model = scene::Scene::from_gltf(ctx, include_bytes!("overlay/assets/scenes/lcolonq.vrm")); 
+        let model = scene::Scene::from_gltf(ctx, include_bytes!("assets/scenes/lcolonq.vrm")); 
         let model_neck_base = model.nodes_by_name.get("J_Bip_C_Neck")
             .and_then(|i| model.nodes.get(*i))
             .expect("failed to find neck joint")
@@ -106,7 +106,7 @@ impl Overlay {
             if let [r, g, b] = c {
                 let ii = i as i32;
                 let p = terminal::Pos::new(ii % 64, ii / 64);
-                self.terminal.set_color.set(
+                self.terminal.base_color.set(
                     p,
                     glam::Vec3::new(*r as f32 / 255.0, *g as f32 / 255.0, *b as f32 / 255.0)
                 );
@@ -222,6 +222,41 @@ impl teleia::state::Game for Overlay {
             s.set_f32(ctx, "chat_time", (self.chat_time - self.throwshade.timeset) as f32);
             ctx.render_no_geometry();
         }
+        self.render_model_terminal(ctx, st);
         Some(())
+    }
+}
+
+#[tokio::main]
+pub async fn main() {
+    let matches = command!()
+        .propagate_version(true)
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .subcommand(
+            Command::new("overlay")
+                .about("Run the LCOLONQ model renderer in a full-screen transparent overlay")
+        )
+        .subcommand(
+            Command::new("terminal")
+                .about("Run the LCOLONQ model renderer in a terminal")
+        )
+        .subcommand(
+            Command::new("server")
+                .about("Run the LCOLONQ online websocket server")
+        )
+        .get_matches();
+    match matches.subcommand() {
+        Some(("overlay", _cm)) => {
+            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, Overlay::overlay).await;
+        },
+        Some(("terminal", _cm)) => {
+            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::HIDDEN, Overlay::terminal).await;
+        },
+        Some(("server", _cm)) => {
+            env_logger::Builder::new().filter(None, log::LevelFilter::Info).init();
+            log::info!("starting LCOLONQ server...");
+        },
+        _ => unreachable!("no subcommand"),
     }
 }

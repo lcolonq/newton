@@ -1,0 +1,36 @@
+[package]
+name = "newton_lib"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "newton"
+path = "src/main.rs"
+
+[dependencies]
+# teleia = { path = "../teleia" } # engine
+teleia = { git = "https://github.com/lcolonq/teleia" } # engine
+glam = "*" # linear algebra
+glow = "*" # gl bindings
+bitflags = "*" # C-style bitwise flags
+rand = "=0.8.5" # rng
+log = "*" # logging
+lazy_static = "*" # global constants
+strum = {version = "*", features = ["derive"]} # utility macros for enums
+lexpr = "*" # s-expression parsing
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "*" # wasm bindings
+wasm-bindgen-futures = "*" # interface with async javascript
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+env_logger = "*"
+tokio = { version = "*", features = ["full"] }
+clap = { version = "*", features = ["cargo"] }
+base64 = "0.22.1"
+polling = "*" # polling sockets 
+termion = "*"
