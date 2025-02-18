@@ -40,6 +40,7 @@ impl Overlay {
             .and_then(|i| model.nodes.get(*i))
             .expect("failed to find neck joint")
             .transform;
+        let throwshade = throwshade::ThrowShade::new();
         Self {
             mode,
             assets: assets::Assets::new(ctx),
@@ -63,7 +64,7 @@ impl Overlay {
             tracking_eyes: (1.0, 1.0),
             tracking_mouth: 0.0,
             tracking_neck: glam::Quat::IDENTITY,
-            throwshade: throwshade::ThrowShade::new(),
+            throwshade,
             chat_msg: format!(""),
             chat_time: 0.0,
             chat_biblicality: 0.0,
@@ -132,7 +133,7 @@ impl Overlay {
         let s = String::from_utf8_lossy(&bs);
         let time = msg.data.get(1)?.as_str()?.parse::<f64>().ok()?;
         let biblicality = msg.data.get(2)?.as_str()?.parse::<f32>().ok()?;
-        log::info!("received chat message: {} {} {}", s, time, biblicality);
+        // log::info!("received chat message: {} {} {}", s, time, biblicality);
         self.chat_msg = s.to_string();
         self.chat_time = time;
         self.chat_biblicality = biblicality;
@@ -214,6 +215,8 @@ impl teleia::state::Game for Overlay {
         Some(())
     }
     fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
+        ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
+        ctx.clear();
         if let Some(s) = &self.throwshade.shader {
             s.bind(ctx);
             s.set_vec2(ctx, "resolution", &glam::Vec2::new(ctx.render_width, ctx.render_height));
@@ -222,7 +225,7 @@ impl teleia::state::Game for Overlay {
             s.set_f32(ctx, "chat_time", (self.chat_time - self.throwshade.timeset) as f32);
             ctx.render_no_geometry();
         }
-        self.render_model_terminal(ctx, st);
+        // self.render_model_terminal(ctx, st);
         Some(())
     }
 }

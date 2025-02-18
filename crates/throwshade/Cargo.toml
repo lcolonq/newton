@@ -8,10 +8,9 @@ authors.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# teleia = { path = "../teleia" } # engine
+# teleia = { path = "../../../teleia" } # engine
 teleia = { git = "https://github.com/lcolonq/teleia" } # engine
 glam = "*" # linear algebra
-glow = "*" # gl bindings
 bitflags = "*" # C-style bitwise flags
 rand = "=0.8.5" # rng
 log = "*" # logging
