@@ -53,5 +53,11 @@ cfg_if::cfg_if! {
         pub async fn main_js() {
             teleia::run(480, 270, teleia::Options::NORESIZE, Game::new).await;
         }
+        #[wasm_bindgen]
+        pub async fn set_shader(s: &str) {
+            contextualize(|ctx, st, g: &mut Game| {
+                log::info!("set shader: {}", s);
+            });
+        }
     }
 }
