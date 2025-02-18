@@ -61,7 +61,7 @@ cfg_if::cfg_if! {
         use wasm_bindgen::prelude::*;
         #[wasm_bindgen]
         pub async fn main_js() {
-            teleia::run(480, 270, teleia::Options::NORESIZE, Game::new).await;
+            teleia::run(1920, 1080, teleia::Options::NORESIZE, Game::new).await;
         }
         #[wasm_bindgen]
         pub async fn set_shader(s: &str) {
