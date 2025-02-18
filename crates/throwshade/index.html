@@ -16,7 +16,7 @@
          addEventListener("TrunkApplicationStarted", async (event) => {
              console.log("initialized, starting...");
              window.wasmBindings.main_js();
-             window.wasmBindings.set_shader("hi");
+             window.wasmBindings.set_shader(" vec4 shade(vec2 cs) {return vec4(cs.x, 0.0, 0.0, 1.0);} ");
          });
         </script>
         <div id="teleia-parent"></canvas>
