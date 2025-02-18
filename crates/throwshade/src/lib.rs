@@ -34,16 +34,25 @@ impl ThrowShade {
 
 cfg_if::cfg_if! {
     if #[cfg(target_arch = "wasm32")] {
-        struct Game {}
+        struct Game {
+            throwshade: ThrowShade,
+        }
         impl Game {
             pub async fn new(_ctx: &context::Context) -> Self {
-                Self {}
+                Self {
+                    throwshade: ThrowShade::new(),
+                }
             }
         }
         impl state::Game for Game {
             fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
-                ctx.clear_color(glam::Vec4::new(1.0, 0.0, 0.0, 1.0));
-                ctx.clear();
+                if let Some(s) = &self.throwshade.shader {
+                    s.bind(ctx);
+                    s.set_vec2(ctx, "resolution", &glam::Vec2::new(ctx.render_width, ctx.render_height));
+                    let elapsed = (st.tick - self.throwshade.tickset) as f32 / 60.0;
+                    s.set_f32(ctx, "time", elapsed);
+                    ctx.render_no_geometry();
+                }
                 Some(())
             }
         }
@@ -57,6 +66,10 @@ cfg_if::cfg_if! {
         pub async fn set_shader(s: &str) {
             contextualize(|ctx, st, g: &mut Game| {
                 log::info!("set shader: {}", s);
+                if let Err(e) = g.throwshade.set(ctx, st, &s) {
+                    log::warn!("error compiling shader: {}", e);
+                    g.throwshade.shader = None;
+                }
             });
         }
     }
