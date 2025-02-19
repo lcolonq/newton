@@ -48,6 +48,8 @@ cfg_if::cfg_if! {
         impl state::Game for Game {
             fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
                 if let Some(s) = &self.throwshade.shader {
+                    ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
+                    ctx.clear();
                     s.bind(ctx);
                     s.set_vec2(ctx, "resolution", &glam::Vec2::new(ctx.render_width, ctx.render_height));
                     let elapsed = (st.tick - self.throwshade.tickset) as f32 / 60.0;
