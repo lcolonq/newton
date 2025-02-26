@@ -6,6 +6,7 @@ const FRAG: &'static str = include_str!("assets/shaders/throwshade/frag.glsl");
 pub struct ThrowShade {
     pub tickset: u64,
     pub timeset: f64,
+    pub author: String,
     pub shader: Option<shader::Shader>,
 }
 impl ThrowShade {
@@ -13,6 +14,7 @@ impl ThrowShade {
         Self {
             tickset: 0,
             timeset: 0.0,
+            author: String::new(),
             shader: None,
         }
     }
@@ -34,6 +36,7 @@ impl ThrowShade {
 }
 
 cfg_if::cfg_if! {
+
     if #[cfg(target_arch = "wasm32")] {
         struct Game {
             throwshade: ThrowShade,
@@ -51,6 +54,7 @@ cfg_if::cfg_if! {
                     ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
                     ctx.clear();
                     s.bind(ctx);
+                    s.set_f32(ctx, "opacity", 0.5);
                     s.set_vec2(ctx, "resolution", &glam::Vec2::new(ctx.render_width, ctx.render_height));
                     let elapsed = (st.tick - self.throwshade.tickset) as f32 / 60.0;
                     s.set_f32(ctx, "time", elapsed);

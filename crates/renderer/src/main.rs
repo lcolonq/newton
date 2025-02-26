@@ -16,6 +16,28 @@ pub enum RenderMode {
     Terminal(termion::raw::RawTerminal<std::io::Stdout>),
 }
 
+pub struct Chat {
+    msg: String,
+    time: f64,
+    biblicality: f32,
+}
+
+impl Chat {
+    pub fn new() -> Self {
+        Self {
+            msg: format!(""),
+            time: 0.0,
+            biblicality: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Toggle {
+    val: bool,
+    set_time: u64,
+}
+
 pub struct Overlay {
     mode: RenderMode,
     assets: assets::Assets,
@@ -28,9 +50,8 @@ pub struct Overlay {
     tracking_mouth: f32,
     tracking_neck: glam::Quat,
     throwshade: throwshade::ThrowShade,
-    chat_msg: String,
-    chat_time: f64,
-    chat_biblicality: f32,
+    chat: Chat,
+    toggles: HashMap<String, Toggle>,
 }
 
 impl Overlay {
@@ -54,6 +75,8 @@ impl Overlay {
             terminal: terminal::Terminal::new(ctx),
             fig: fig::Client::new("shiro:32050", &[
                 sexp!((avatar toggle)),
+                sexp!((avatar toggle set)),
+                sexp!((avatar toggle unset)),
                 sexp!((avatar text)),
                 sexp!((avatar frame)),
                 sexp!((avatar reset)),
@@ -65,9 +88,8 @@ impl Overlay {
             tracking_mouth: 0.0,
             tracking_neck: glam::Quat::IDENTITY,
             throwshade,
-            chat_msg: format!(""),
-            chat_time: 0.0,
-            chat_biblicality: 0.0,
+            chat: Chat::new(),
+            toggles: HashMap::new(),
         }
     }
     pub async fn overlay(ctx: &context::Context) -> Self {
@@ -77,10 +99,28 @@ impl Overlay {
         let raw_stdout = std::io::stdout().into_raw_mode().expect("failed to set raw mode");
         Self::new(ctx, RenderMode::Terminal(raw_stdout)).await
     }
-    pub fn handle_reset(&mut self, ctx: &context::Context ) {
+    pub fn set_toggle(&mut self, ctx: &context::Context, st: &state::State, nm: &str, val: bool) {
+        self.toggles.insert(nm.to_string(), Toggle { val, set_time: st.tick });
+    }
+    pub fn get_toggle(&self, ctx: &context::Context, st: &state::State, nm: &str) -> Option<Toggle> {
+        self.toggles.get(nm).cloned()
+    }
+    pub fn handle_reset(&mut self, ctx: &context::Context) {
         // TODO also reset terminal
         if let Some(s) = &mut self.throwshade.shader { s.delete(ctx); }
         self.throwshade.shader = None;
+        self.toggles.clear();
+    }
+    pub fn handle_toggle(&mut self, ctx: &context::Context, st: &state::State, msg: fig::Message) -> Option<()> {
+        let nm = msg.data.get(0)?.as_str()?;
+        let prev = self.get_toggle(ctx, st, nm).map(|t| t.val).unwrap_or(false);
+        self.set_toggle(ctx, st, nm, !prev);
+        Some(())
+    }
+    pub fn handle_toggle_set(&mut self, ctx: &context::Context, st: &state::State, msg: fig::Message, val: bool) -> Option<()> {
+        let nm = msg.data.get(0)?.as_str()?;
+        self.set_toggle(ctx, st, nm, val);
+        Some(())
     }
     pub fn handle_tracking(&mut self, msg: fig::Message) -> Option<()> {
         let eyes = msg.data.get(0)?;
@@ -120,8 +160,11 @@ impl Overlay {
         ctx: &context::Context, st: &state::State,
         msg: fig::Message
     ) -> Option<()> {
-        let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
+        let ba = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
+        let author = String::from_utf8_lossy(&ba);
+        let bs = BASE64_STANDARD.decode(msg.data.get(1)?.as_str()?).ok()?;
         let s = String::from_utf8_lossy(&bs);
+        self.throwshade.author = author.to_string();
         if let Err(e) = self.throwshade.set(ctx, st, &s) {
             log::warn!("error compiling shader: {}", e);
             self.throwshade.shader = None;
@@ -134,9 +177,9 @@ impl Overlay {
         let time = msg.data.get(1)?.as_str()?.parse::<f64>().ok()?;
         let biblicality = msg.data.get(2)?.as_str()?.parse::<f32>().ok()?;
         // log::info!("received chat message: {} {} {}", s, time, biblicality);
-        self.chat_msg = s.to_string();
-        self.chat_time = time;
-        self.chat_biblicality = biblicality;
+        self.chat.msg = s.to_string();
+        self.chat.time = time;
+        self.chat.biblicality = biblicality;
         Some(())
     }
     fn render_model_terminal(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
@@ -197,6 +240,12 @@ impl teleia::state::Game for Overlay {
                 if self.handle_tracking(msg).is_none() { log::warn!("{}", malformed) }
             } else if msg.event == sexp!((avatar reset)) {
                 self.handle_reset(ctx);
+            } else if msg.event == sexp!((avatar toggle)) {
+                if self.handle_toggle(ctx, st, msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar toggle set)) {
+                if self.handle_toggle_set(ctx, st, msg, true).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar toggle unset)) {
+                if self.handle_toggle_set(ctx, st, msg, false).is_none() { log::warn!("{}", malformed) }
             } else if msg.event == sexp!((avatar text)) {
                 if self.handle_text(msg).is_none() { log::warn!("{}", malformed) }
             } else if msg.event == sexp!((avatar frame)) {
@@ -219,11 +268,41 @@ impl teleia::state::Game for Overlay {
         ctx.clear();
         if let Some(s) = &self.throwshade.shader {
             s.bind(ctx);
+            s.set_f32(
+                ctx, "opacity",
+                if let Some(t@Toggle { val: true, .. }) = self.get_toggle(ctx, st, "shaderclarity") {
+                    ((st.tick - t.set_time) as f32 / 60.0).clamp(0.0, 1.0) * 0.5 + 0.5
+                } else if let Some(t@Toggle { val: false, .. }) = self.get_toggle(ctx, st, "shaderclarity") {
+                    (1.0 - ((st.tick - t.set_time) as f32 / 60.0).clamp(0.0, 1.0)) * 0.5 + 0.5
+                } else {
+                    0.5
+                }
+            );
             s.set_vec2(ctx, "resolution", &glam::Vec2::new(ctx.render_width, ctx.render_height));
             let elapsed = (st.tick - self.throwshade.tickset) as f32 / 60.0;
             s.set_f32(ctx, "time", elapsed);
-            s.set_f32(ctx, "chat_time", (self.chat_time - self.throwshade.timeset) as f32);
+            s.set_f32(ctx, "chat_time", (self.chat.time - self.throwshade.timeset) as f32);
             ctx.render_no_geometry();
+            s.set_f32(ctx, "tracking_mouth", self.tracking_mouth);
+            // log::info!("eyes: {:?}", self.tracking_eyes);
+            s.set_vec2(ctx, "tracking_eyes", &glam::Vec2::new(self.tracking_eyes.0, self.tracking_eyes.1));
+            s.set_mat4(ctx, "tracking_neck", &glam::Mat4::from_quat(self.tracking_neck));
+            self.assets.font.render_text(
+                ctx, &glam::Vec2::new(0.0, 0.0),
+                &format!("shader by {}", self.throwshade.author),
+            );
+        }
+        if let Some(t@Toggle { val: true, .. }) = self.get_toggle(ctx, st, "adblock") {
+            st.bind_2d(ctx, &self.assets.shader_flat);
+            self.assets.texture_adblock.bind(ctx);
+            let tr = 1.0 - ((st.tick - t.set_time) as f32 / 60.0).clamp(0.0, 1.0);
+            self.assets.shader_flat.set_f32(ctx, "transparency", tr);
+            self.assets.shader_flat.set_position_2d(
+                ctx,
+                &glam::Vec2::new(1100.0, 300.0),
+                &glam::Vec2::new(800.0, 600.0)
+            );
+            self.assets.mesh_square.render(ctx);
         }
         // self.render_model_terminal(ctx, st);
         Some(())

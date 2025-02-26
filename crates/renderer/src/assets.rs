@@ -5,6 +5,7 @@ pub struct Assets {
     pub shader_flat: shader::Shader,
     pub shader_scene: shader::Shader,
     pub mesh_square: mesh::Mesh,
+    pub texture_adblock: texture::Texture,
 }
 
 impl Assets {
@@ -22,6 +23,7 @@ impl Assets {
                 include_str!("assets/shaders/scene/frag.glsl")
             ),
             mesh_square: mesh::Mesh::from_obj(ctx, include_bytes!("assets/meshes/square.obj")),
+            texture_adblock: texture::Texture::new(ctx, include_bytes!("assets/textures/adblock.png")),
         }
     }
 }
