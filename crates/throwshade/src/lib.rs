@@ -49,7 +49,7 @@ cfg_if::cfg_if! {
             }
         }
         impl state::Game for Game {
-            fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
+            fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Erm<()> {
                 if let Some(s) = &self.throwshade.shader {
                     ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
                     ctx.clear();
@@ -60,7 +60,7 @@ cfg_if::cfg_if! {
                     s.set_f32(ctx, "time", elapsed);
                     ctx.render_no_geometry();
                 }
-                Some(())
+                Ok(())
             }
         }
 
