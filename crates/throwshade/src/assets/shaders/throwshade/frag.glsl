@@ -21,6 +21,11 @@ uniform float tracking_mouth;
 uniform vec2 tracking_eyes;
 uniform mat4 tracking_neck;
 
+uniform vec2 emacs_cursor;
+uniform vec2 mouse_cursor;
+
+uniform int heartrate;
+
 vec4 shade(vec2);
 
 void main() {

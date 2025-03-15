@@ -50,6 +50,10 @@ pub struct Overlay {
     tracking_mouth: f32,
     tracking_neck: glam::Quat,
     throwshade: throwshade::ThrowShade,
+    emacs_cursor: (f32, f32),
+    mouse_cursor: (f32, f32),
+    emacs_heartrate: i32,
+    muzak_author: Option<String>,
     chat: Chat,
     toggles: HashMap<String, Toggle>,
 }
@@ -82,12 +86,20 @@ impl Overlay {
                 sexp!((avatar reset)),
                 sexp!((avatar tracking)),
                 sexp!((avatar overlay shader)),
+                sexp!((avatar overlay muzak)),
+                sexp!((avatar overlay muzak clear)),
                 sexp!((avatar overlay chat)),
+                sexp!((avatar overlay cursor)),
+                sexp!((avatar overlay emacs)),
             ]),
             tracking_eyes: (1.0, 1.0),
             tracking_mouth: 0.0,
             tracking_neck: glam::Quat::IDENTITY,
+            emacs_cursor: (0.0, 0.0),
+            mouse_cursor: (0.0, 0.0),
+            emacs_heartrate: 0,
             throwshade,
+            muzak_author: None,
             chat: Chat::new(),
             toggles: HashMap::new(),
         }
@@ -171,6 +183,16 @@ impl Overlay {
         }
         Some(())
     }
+    pub fn handle_overlay_muzak(&mut self, msg: fig::Message) -> Option<()> {
+        let ba = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
+        let author = String::from_utf8_lossy(&ba);
+        self.muzak_author = Some(author.to_string());
+        Some(())
+    }
+    pub fn handle_overlay_muzak_clear(&mut self) -> Option<()> {
+        self.muzak_author = None;
+        Some(())
+    }
     pub fn handle_overlay_chat(&mut self, msg: fig::Message) -> Option<()> {
         let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
         let s = String::from_utf8_lossy(&bs);
@@ -180,6 +202,16 @@ impl Overlay {
         self.chat.msg = s.to_string();
         self.chat.time = time;
         self.chat.biblicality = biblicality;
+        Some(())
+    }
+    pub fn handle_overlay_cursor(&mut self, msg: fig::Message) -> Option<()> {
+        let cursor_x = msg.data.get(0)?.as_i64()? as f32;
+        let cursor_y = msg.data.get(1)?.as_i64()? as f32;
+        self.emacs_cursor = (cursor_x, cursor_y);
+        Some(())
+    }
+    pub fn handle_overlay_emacs(&mut self, msg: fig::Message) -> Option<()> {
+        self.emacs_heartrate = msg.data.get(0)?.as_i64()? as i32;
         Some(())
     }
     fn render_model_terminal(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
@@ -222,7 +254,7 @@ impl teleia::state::Game for Overlay {
     fn finish_title(&mut self, _st: &mut state::State) {}
     fn mouse_press(&mut self, _ctx: &context::Context, _st: &mut state::State) {}
     fn mouse_move(&mut self, _ctx: &context::Context, _st: &mut state::State, _x: i32, _y: i32) {}
-    fn update(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
+    fn update(&mut self, ctx: &context::Context, st: &mut state::State) -> Erm<()> {
         st.projection = glam::Mat4::perspective_lh(
             PI / 4.0,
             terminal::WIDTH as f32 / terminal::HEIGHT as f32,
@@ -234,6 +266,12 @@ impl teleia::state::Game for Overlay {
             &glam::Vec3::new(0.0, 0.0, -1.0),
             &glam::Vec3::new(0.0, 1.0, 0.0),
         );
+        match mouse_position::mouse_position::Mouse::get_mouse_position() {
+            mouse_position::mouse_position::Mouse::Position { x, y } => {
+                self.mouse_cursor = (x as f32, y as f32);
+            },
+            _ => {},
+        }
         while let Some(msg) = self.fig.pump() {
             let malformed = format!("malformed {} data: {}", msg.event, msg.data);
             if msg.event == sexp!((avatar tracking)) {
@@ -252,8 +290,14 @@ impl teleia::state::Game for Overlay {
                 if self.handle_frame(msg).is_none() { log::warn!("{}", malformed) }
             } else if msg.event == sexp!((avatar overlay shader)) {
                 if self.handle_overlay_shader(ctx, st, msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay muzak)) {
+                if self.handle_overlay_muzak(msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay muzak clear)) {
+                if self.handle_overlay_muzak_clear().is_none() { log::warn!("{}", malformed) }
             } else if msg.event == sexp!((avatar overlay chat)) {
                 if self.handle_overlay_chat(msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay cursor)) {
+                if self.handle_overlay_cursor(msg).is_none() { log::warn!("{}", malformed) }
             } else {
                 log::info!("received unhandled event {} with data: {}", msg.event, msg.data);
             }
@@ -261,9 +305,9 @@ impl teleia::state::Game for Overlay {
         if let Some(n) = self.model.nodes_by_name.get("J_Bip_C_Neck").and_then(|i| self.model.nodes.get_mut(*i)) {
             n.transform = self.model_neck_base * glam::Mat4::from_quat(self.tracking_neck);
         }
-        Some(())
+        Ok(())
     }
-    fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
+    fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Erm<()> {
         ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
         ctx.clear();
         if let Some(s) = &self.throwshade.shader {
@@ -287,10 +331,9 @@ impl teleia::state::Game for Overlay {
             // log::info!("eyes: {:?}", self.tracking_eyes);
             s.set_vec2(ctx, "tracking_eyes", &glam::Vec2::new(self.tracking_eyes.0, self.tracking_eyes.1));
             s.set_mat4(ctx, "tracking_neck", &glam::Mat4::from_quat(self.tracking_neck));
-            self.assets.font.render_text(
-                ctx, &glam::Vec2::new(0.0, 0.0),
-                &format!("shader by {}", self.throwshade.author),
-            );
+            s.set_vec2(ctx, "emacs_cursor", &glam::Vec2::new(self.emacs_cursor.0, self.emacs_cursor.1));
+            s.set_vec2(ctx, "mouse_cursor", &glam::Vec2::new(self.mouse_cursor.0, self.mouse_cursor.1));
+            s.set_i32(ctx, "heartrate", self.emacs_heartrate);
         }
         if let Some(t@Toggle { val: true, .. }) = self.get_toggle(ctx, st, "adblock") {
             st.bind_2d(ctx, &self.assets.shader_flat);
@@ -304,13 +347,22 @@ impl teleia::state::Game for Overlay {
             );
             self.assets.mesh_square.render(ctx);
         }
+        let mut authors = Vec::new();
+        if let Some(_) = &self.throwshade.shader {
+            authors.push(format!("shader by {}", self.throwshade.author));
+        }
+        if let Some(a) = &self.muzak_author {
+            authors.push(format!("music by {}", a));
+        }
+        let astr: String = authors.join(", ");
+        self.assets.font.render_text(ctx, &glam::Vec2::new(0.0, 0.0), &astr);
         // self.render_model_terminal(ctx, st);
-        Some(())
+        Ok(())
     }
 }
 
 #[tokio::main]
-pub async fn main() {
+pub async fn main() -> Erm<()> {
     let matches = command!()
         .propagate_version(true)
         .subcommand_required(true)
@@ -330,10 +382,10 @@ pub async fn main() {
         .get_matches();
     match matches.subcommand() {
         Some(("overlay", _cm)) => {
-            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, Overlay::overlay).await;
+            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, Overlay::overlay).await?;
         },
         Some(("terminal", _cm)) => {
-            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::HIDDEN, Overlay::terminal).await;
+            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::HIDDEN, Overlay::terminal).await?;
         },
         Some(("server", _cm)) => {
             env_logger::Builder::new().filter(None, log::LevelFilter::Info).init();
@@ -341,4 +393,5 @@ pub async fn main() {
         },
         _ => unreachable!("no subcommand"),
     }
+    Ok(())
 }

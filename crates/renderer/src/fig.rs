@@ -39,9 +39,9 @@ impl Client {
                 }
             },
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                if self.buf.len() > 0 {
-                    log::error!("error wouldblock: buf is {}", self.buf);
-                }
+                // if self.buf.len() > 0 {
+                //     log::error!("error wouldblock: buf is {}", self.buf);
+                // }
                 None
             },
             Err(e) => panic!("IO error on message bus: {}", e),
