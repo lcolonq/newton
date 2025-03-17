@@ -36,7 +36,6 @@ impl ThrowShade {
 }
 
 cfg_if::cfg_if! {
-
     if #[cfg(target_arch = "wasm32")] {
         struct Game {
             throwshade: ThrowShade,
