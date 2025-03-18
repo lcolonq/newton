@@ -15,14 +15,21 @@
         renderer = inputs.teleia.native.build ./. "renderer";
       };
       wasm = {
-        throwshade = inputs.teleia.wasm.build ./. "throwshade";
+        throwshade = (inputs.teleia.wasm.build ./. "throwshade").overrideAttrs (cur: prev: {
+          preBuild = ''
+            cd ./crates/throwshade
+          '';
+          postBuild = ''
+            mv ./dist ../..
+            cd ../..
+          '';
+        });
       };
     in {
       packages.${system} = {
         inherit native wasm;
         st = inputs.st.packages.x86_64-linux.st;
       };
-
       devShells.${system}.default = inputs.teleia.shell;
     };
 }
