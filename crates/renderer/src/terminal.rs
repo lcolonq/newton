@@ -2,9 +2,6 @@ use std::{collections::HashMap, io::Write};
 
 use teleia::*;
 
-pub const WIDTH: usize = 64;
-pub const HEIGHT: usize = 64;
-
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Pos {
     pub x: i32, pub y: i32,
@@ -32,22 +29,24 @@ impl Default for CharPair {
 }
 
 pub struct Layer<T> {
-    pub data: [T; WIDTH * HEIGHT],
+    pub width: usize, pub height: usize,
+    pub data: Vec<T>,
 }
 impl<T> Layer<T> {
-    pub fn new() -> Self where T: Default {
+    pub fn new(width: usize, height: usize) -> Self where T: Default {
         Self {
-            data: [(); WIDTH * HEIGHT].map(|_| T::default()),
+            width, height,
+            data: vec![(); width * height].iter().map(|_| T::default()).collect(),
         }
     }
     pub fn get(&self, p: Pos) -> Option<&T> {
-        if p.x < 0 || p.x >= WIDTH as _ || p.y < 0 || p.y >= HEIGHT as _ { return None }
-        let idx = p.x as usize + p.y as usize * WIDTH;
+        if p.x < 0 || p.x >= self.width as _ || p.y < 0 || p.y >= self.height as _ { return None }
+        let idx = p.x as usize + p.y as usize * self.width;
         Some(&self.data[idx])
     }
     pub fn set(&mut self, p: Pos, x: T) {
-        if p.x < 0 || p.x >= WIDTH as _ || p.y < 0 || p.y >= HEIGHT as _ { return }
-        let idx = p.x as usize + p.y as usize * WIDTH;
+        if p.x < 0 || p.x >= self.width as _ || p.y < 0 || p.y >= self.height as _ { return }
+        let idx = p.x as usize + p.y as usize * self.width;
         self.data[idx] = x;
     }
 }
@@ -56,11 +55,11 @@ impl Layer<CharPair> {
         let chars: Vec<char> = s.chars().collect();
         if chars.is_empty() { return }
         let mut i: usize = 0;
-        for row in 0..64 {
-            for col in 0..64 {
+        for row in 0..self.height {
+            for col in 0..self.width {
                 let first = chars[i]; i += 1; i %= chars.len();
                 let second = Some(chars[i]); i += 1; i %= chars.len();
-                self.set(Pos::new(col, row), CharPair { first, second });
+                self.set(Pos::new(col as _, row as _), CharPair { first, second });
             }
         }
     }
@@ -135,18 +134,20 @@ pub struct PaletteEntry {
 }
 
 pub struct Terminal {
+    pub width: usize, pub height: usize,
     pub font: font::Bitmap,
     pub base_color: Layer<glam::Vec3>,
     pub base_char: Layer<CharPair>,
     pub palette: HashMap<PaletteType, PaletteEntry>,
 }
 impl Terminal {
-    pub fn new(ctx: &context::Context) -> Self {
-        let mut base_char = Layer::new();
+    pub fn new(ctx: &context::Context, width: usize, height: usize) -> Self {
+        let mut base_char = Layer::new(width, height);
         base_char.from_str("lcolonq");
         Self {
+            width, height,
             font: font::Bitmap::from_image(ctx, 6, 12, 96, 72, include_bytes!("assets/fonts/terminus.png")),
-            base_color: Layer::new(),
+            base_color: Layer::new(width, height),
             base_char,
             palette: HashMap::new(),
         }
@@ -196,9 +197,9 @@ impl Terminal {
     pub fn render(&self, ctx: &context::Context, pos: &glam::Vec2) {
         let mut s = String::new();
         let mut colors = Vec::new();
-        for row in 0..64 {
-            for col in 0..64 {
-                let pos = Pos::new(col, row);
+        for row in 0..self.height {
+            for col in 0..self.width {
+                let pos = Pos::new(col as _, row as _);
                 let (p, c) = self.get(pos);
                 colors.push(c); colors.push(c);
                 s += &format!("{}{}", p.first, if let Some(snd) = p.second { snd } else { ' ' });

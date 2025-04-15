@@ -1,5 +1,5 @@
 [package]
-name = "throwshade"
+name = "newton_throwshade"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

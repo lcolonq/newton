@@ -6,6 +6,9 @@ pub struct Assets {
     pub shader_scene: shader::Shader,
     pub mesh_square: mesh::Mesh,
     pub texture_adblock: texture::Texture,
+    pub texture_mod: texture::Texture,
+    pub texture_operatop: texture::Texture,
+    pub texture_operabottom: texture::Texture,
 }
 
 impl Assets {
@@ -24,6 +27,9 @@ impl Assets {
             ),
             mesh_square: mesh::Mesh::from_obj(ctx, include_bytes!("assets/meshes/square.obj")),
             texture_adblock: texture::Texture::new(ctx, include_bytes!("assets/textures/adblock.png")),
+            texture_mod: texture::Texture::new(ctx, include_bytes!("assets/textures/mod.png")),
+            texture_operatop: texture::Texture::new(ctx, include_bytes!("assets/textures/operatop.png")),
+            texture_operabottom: texture::Texture::new(ctx, include_bytes!("assets/textures/operabottom.png")),
         }
     }
 }
