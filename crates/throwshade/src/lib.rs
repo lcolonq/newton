@@ -41,7 +41,7 @@ cfg_if::cfg_if! {
             throwshade: ThrowShade,
         }
         impl Game {
-            pub async fn new(_ctx: &context::Context) -> Self {
+            pub fn new(_ctx: &context::Context) -> Self {
                 Self {
                     throwshade: ThrowShade::new(),
                 }
@@ -65,18 +65,20 @@ cfg_if::cfg_if! {
 
         use wasm_bindgen::prelude::*;
         #[wasm_bindgen]
-        pub async fn main_js() {
-            teleia::run(1920, 1080, teleia::Options::NORESIZE, Game::new).await;
+        pub fn main_js() {
+            teleia::run(1920, 1080, teleia::Options::NORESIZE, Game::new);
         }
         #[wasm_bindgen]
-        pub async fn set_shader(s: &str) {
+        pub async fn set_shader(s: &str) -> Result<(), String> {
             contextualize(|ctx, st, g: &mut Game| {
                 log::info!("set shader: {}", s);
                 if let Err(e) = g.throwshade.set(ctx, st, &s) {
                     log::warn!("error compiling shader: {}", e);
                     g.throwshade.shader = None;
+                    return Err(format!("{}", e));
                 }
-            });
+                Ok(())
+            })
         }
     }
 }

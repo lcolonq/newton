@@ -188,7 +188,7 @@ impl teleia::state::Game for Overlay {
         self.term.update(ctx, &self.fb);
         ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
         ctx.clear();
-        self.term.render(ctx, &glam::Vec2::new(0.0, 0.0));
+        self.term.render(ctx, &glam::Vec2::new(32.0, 32.0));
         Ok(())
     }
 }
