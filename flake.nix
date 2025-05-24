@@ -15,7 +15,7 @@
         renderer = inputs.teleia.native.build ./. "renderer";
       };
       wasm = {
-        throwshade = (inputs.teleia.wasm.build ./. "throwshade").overrideAttrs (cur: prev: {
+        throwshade = (inputs.teleia.wasm.build ./. "newton_throwshade").overrideAttrs (cur: prev: {
           preBuild = ''
             cd ./crates/throwshade
           '';
