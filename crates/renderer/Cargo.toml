@@ -25,4 +25,5 @@ clap = { version = "*", features = ["cargo"] } # cli arg parsing
 base64 = "0.22.1" # base64 encoding/decoding
 polling = "*" # polling sockets 
 termion = "*" # terminal escapes
-mouse_position = "*" # get mouse position
+device_query = "*" # get pressed keys when unfocused
+byteorder = "*" # read little-endian numbers

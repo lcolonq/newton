@@ -85,8 +85,10 @@ impl Overlay {
         Some(())
     }
     pub fn handle_text(&mut self, msg: fig::Message) -> Option<()> {
-        let s = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
-        self.terminal.fill_string(std::str::from_utf8(&s).ok()?);
+        let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
+        let s = std::str::from_utf8(&bs).ok()?;
+        log::info!("handle_text: {}", s);
+        self.terminal.fill_string(s);
         Some(())
     }
     pub fn handle_frame(&mut self, msg: fig::Message) -> Option<()> {
