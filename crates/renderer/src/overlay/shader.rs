@@ -7,7 +7,7 @@ use device_query::DeviceQuery;
 
 use glow::HasContext;
 
-use crate::{assets, fig, toggle};
+use crate::{assets, fig, toggle, background};
 
 pub struct Chat {
     author: String,
@@ -38,9 +38,16 @@ pub struct Drawing {
     pixels: [u8; DRAWING_WIDTH * DRAWING_HEIGHT],
     last_point: Option<(i32, i32)>,
     shader_white: shader::Shader,
+    shader_background: shader::Shader,
 }
 impl Drawing {
     pub fn new(ctx: &context::Context) -> Self {
+        let shader_background = shader::Shader::new(
+            ctx,
+            include_str!("../assets/shaders/background/vert.glsl"),
+            include_str!("../assets/shaders/background/frag.glsl"),
+        );
+        shader_background.set_i32(ctx, "background", 1);
         Self {
             tex: texture::Texture::new_empty(ctx),
             pixels: [0; DRAWING_WIDTH * DRAWING_HEIGHT],
@@ -50,10 +57,11 @@ impl Drawing {
                 include_str!("../assets/shaders/white/vert.glsl"),
                 include_str!("../assets/shaders/white/frag.glsl"),
             ),
+            shader_background,
         }
     }
     pub fn coord(&self, x: usize, y: usize) -> Option<usize> {
-        if x > DRAWING_WIDTH || y > DRAWING_HEIGHT {
+        if x >= DRAWING_WIDTH || y >= DRAWING_HEIGHT {
             None
         } else {
             Some(x + y * DRAWING_WIDTH)
@@ -126,6 +134,7 @@ pub struct Overlay {
     muzak_author: Option<String>,
     chat: Chat,
     toggles: toggle::Toggles,
+    backgrounds: background::Backgrounds,
     drawing: Drawing,
     device: device_query::DeviceState,
 }
@@ -158,7 +167,7 @@ impl Overlay {
                 sexp!((avatar overlay emacs)),
             ]),
             fig_binary: fig::BinaryClient::new("shiro:32051", &[
-                b"test event"
+                b"background frame"
             ]),
             tracking_eyes: (1.0, 1.0),
             tracking_mouth: 0.0,
@@ -170,6 +179,7 @@ impl Overlay {
             muzak_author: None,
             chat: Chat::new(),
             toggles: toggle::Toggles::new(),
+            backgrounds: background::Backgrounds::new(ctx),
             drawing: Drawing::new(ctx),
             device: device_query::DeviceState::new(),
         }
@@ -257,9 +267,10 @@ impl Overlay {
         Some(())
     }
     pub fn render_drawing(&self, ctx: &context::Context, st: &mut state::State) {
-        st.bind_2d(ctx, &self.drawing.shader_white);
+        st.bind_2d(ctx, &self.drawing.shader_background);
         self.drawing.tex.bind(ctx);
-        self.drawing.shader_white.set_position_2d(
+        self.backgrounds.drawing.bind_index(ctx, 1);
+        self.drawing.shader_background.set_position_2d(
             ctx,
             &glam::Vec2::new(0.0, 0.0),
             &glam::Vec2::new(1920.0, 1080.0)
@@ -311,7 +322,18 @@ impl teleia::state::Game for Overlay {
             }
         }
         while let Some(msg) = self.fig_binary.pump() {
-            log::info!("binary message: {:?}", msg);
+            match &*msg.event {
+                b"background frame" => {
+                    if let Some(f) = background::Frame::parse(&mut &*msg.data) {
+                        self.backgrounds.update(ctx, f);
+                    } else {
+                        log::warn!("failed to parse frame");
+                    }
+                },
+                ev => {
+                    log::info!("unhandled event: {:?}", ev);
+                },
+            }
         }
         if let Some(n) = self.model.nodes_by_name.get("J_Bip_C_Neck").and_then(|i| self.model.nodes.get_mut(*i)) {
             n.transform = self.model_neck_base * glam::Mat4::from_quat(self.tracking_neck);

@@ -99,11 +99,11 @@ impl BinaryClient {
         mut state: BinaryClientState,
     ) -> BinaryClientState {
         loop {
-            let new_state = match state {
+            state = match state {
                 BinaryClientState::PartialEventLength { mut buf_len, mut buf } => {
                     buf_len += if let Some(x) = Self::read(reader, &mut buf[buf_len..]) {
                         x
-                    } else { break; };
+                    } else { break BinaryClientState::PartialEventLength { buf_len, buf }; };
                     if buf_len == 4 {
                         let len = u32::from_le_bytes(buf) as usize;
                         BinaryClientState::PartialEvent {
@@ -111,28 +111,24 @@ impl BinaryClient {
                             buf_len: 0,
                             buf: vec![0; len],
                         }
-                    } else {
-                        BinaryClientState::PartialEventLength { buf_len, buf }
-                    }
+                    } else { BinaryClientState::PartialEventLength { buf_len, buf } }
                 },
                 BinaryClientState::PartialEvent { len, mut buf_len, mut buf } => {
                     buf_len += if let Some(x) = Self::read(reader, &mut buf[buf_len..]) {
                         x
-                    } else { break; };
+                    } else { break BinaryClientState::PartialEvent { len, buf_len, buf }; };
                     if buf_len == len {
                         BinaryClientState::PartialDataLength {
                             event: buf.clone(),
                             buf_len: 0,
                             buf: [0; 4],
                         }
-                    } else {
-                        BinaryClientState::PartialEvent { len, buf_len, buf }
-                    }
+                    } else { BinaryClientState::PartialEvent { len, buf_len, buf } }
                 },
                 BinaryClientState::PartialDataLength { event, mut buf_len, mut buf } => {
                     buf_len += if let Some(x) = Self::read(reader, &mut buf[buf_len..]) {
                         x
-                    } else { break; };
+                    } else { break BinaryClientState::PartialDataLength { event, buf_len, buf }; };
                     if buf_len == 4 {
                         let len = u32::from_le_bytes(buf) as usize;
                         BinaryClientState::PartialData {
@@ -141,41 +137,37 @@ impl BinaryClient {
                             buf_len: 0,
                             buf: vec![0; len],
                         }
-                    } else {
-                        BinaryClientState::PartialDataLength { event, buf_len, buf }
-                    }
+                    } else { BinaryClientState::PartialDataLength { event, buf_len, buf } }
                 },
                 BinaryClientState::PartialData { event, len, mut buf_len, mut buf } => {
                     buf_len += if let Some(x) = Self::read(reader, &mut buf[buf_len..]) {
                         x
-                    } else { break; };
+                    } else { break BinaryClientState::PartialData { event, len, buf_len, buf }; };
                     if buf_len == len {
                         BinaryClientState::Message {
                             event,
                             data: buf.clone(),
                         }
-                    } else {
-                        BinaryClientState::PartialData { event, len, buf_len, buf }
-                    }
+                    } else { BinaryClientState::PartialData { event, len, buf_len, buf } }
                 },
-                BinaryClientState::Message{..} => break,
+                st@BinaryClientState::Message{..} => break st,
             };
-            state = new_state;
-        };
-        state
+        }
     }
     pub fn pump(&mut self) -> Option<BinaryMessage> {
-        None
-        // loop {
-        //     if let Some(new) = self.update_state(mem::take(&mut self.state)) {
-        //         self.state = new;
-        //     } else { break; }
-        // }
-        // if let BinaryClientState::Message { event, data } = self.state.clone() {
-        //     self.state = BinaryClientState::PartialEventLength { buf_len: 0, buf: [0; 4] };
-        //     Some(BinaryMessage { event, data })
-        // } else {
-        //     None
-        // }
+        self.state = Self::update_state(&mut self.reader, std::mem::take(&mut self.state));
+        match std::mem::take(&mut self.state) {
+            BinaryClientState::Message { event, data } => {
+                self.state = BinaryClientState::PartialEventLength { buf_len: 0, buf: [0; 4] };
+                Some(BinaryMessage {
+                    event: event,
+                    data: data,
+                })
+            },
+            st => {
+                self.state = st;
+                None
+            }
+        }
     }
 }

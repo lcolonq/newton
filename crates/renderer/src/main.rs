@@ -2,6 +2,7 @@
 mod assets;
 mod terminal;
 mod fig;
+mod background;
 mod toggle;
 mod overlay;
 
