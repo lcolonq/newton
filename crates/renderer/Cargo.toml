@@ -9,7 +9,6 @@ name = "newton_renderer"
 path = "src/main.rs"
 
 [dependencies]
-# teleia = { path = "../../../teleia" } # engine
 teleia = { git = "https://github.com/lcolonq/teleia" } # engine
 newton_throwshade = { path = "../throwshade" }
 glam = "*" # linear algebra

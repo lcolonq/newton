@@ -7,12 +7,7 @@ authors.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-[[bin]]
-name = "newton_client"
-path = "src/main.rs"
-
 [dependencies]
-# teleia = { path = "../teleia" } # engine
 teleia = { git = "https://github.com/lcolonq/teleia" } # engine
 glam = "*" # linear algebra
 glow = "*" # gl bindings

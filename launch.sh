@@ -1,2 +1,2 @@
 #!/bin/sh
-cargo run -p newton_renderer -- shader-overlay
+./target/debug/newton_renderer -- shader-overlay

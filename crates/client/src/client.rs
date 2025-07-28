@@ -9,7 +9,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub async fn new(ctx: &context::Context) -> Self {
+    pub fn new(ctx: &context::Context) -> Self {
         Self {
             assets: assets::Assets::new(ctx),
         }
@@ -25,10 +25,10 @@ impl teleia::state::Game for Game {
     fn finish_title(&mut self, _st: &mut state::State) {}
     fn mouse_press(&mut self, _ctx: &context::Context, _st: &mut state::State) {}
     fn mouse_move(&mut self, _ctx: &context::Context, _st: &mut state::State, _x: i32, _y: i32) {}
-    fn update(&mut self, ctx: &context::Context, _st: &mut state::State) -> Option<()> {
-        Some(())
+    fn update(&mut self, ctx: &context::Context, _st: &mut state::State) -> Erm<()> {
+        Ok(())
     }
-    fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
+    fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Erm<()> {
         ctx.clear();
         self.assets.font.render_text(
             ctx,
@@ -43,6 +43,6 @@ impl teleia::state::Game for Game {
             &glam::Vec2::new(16.0, 16.0),
         );
         self.assets.mesh_square.render(ctx);
-        Some(())
+        Ok(())
     }
 }

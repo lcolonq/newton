@@ -48,10 +48,6 @@ pub fn main() -> Erm<()> {
         Some(("model-multi-overlay", _cm)) => {
             teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, overlay::multi::Overlay::new)?;
         },
-        Some(("server", _cm)) => {
-            env_logger::Builder::new().filter(None, log::LevelFilter::Info).init();
-            log::info!("starting LCOLONQ server...");
-        },
         _ => unreachable!("no subcommand"),
     }
     Ok(())
