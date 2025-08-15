@@ -13,19 +13,19 @@ pub struct Frame<'a> {
 impl<'a> Frame<'a> {
     fn read_length_prefixed(reader: &mut &'a [u8]) -> Option<&'a [u8]> {
         let len = reader.read_u32::<byteorder::LE>().ok()? as usize;
-        log::info!("len: {}", len);
+        // log::info!("len: {}", len);
         let (x, xs) = reader.split_at(len);
         *reader = xs;
         Some(x)
     }
     pub fn parse(reader: &mut &'a [u8]) -> Option<Self> {
-        log::info!("message: {:?}", reader);
+        // log::info!("message: {:?}", reader);
         let tag = Self::read_length_prefixed(reader)?;
-        log::info!("tag: {:?}", tag);
+        // log::info!("tag: {:?}", tag);
         let width = reader.read_u32::<byteorder::LE>().ok()?;
-        log::info!("width: {:?}", width);
+        // log::info!("width: {:?}", width);
         let height = reader.read_u32::<byteorder::LE>().ok()?;
-        log::info!("height: {:?}", height);
+        // log::info!("height: {:?}", height);
         let pixels = *reader;
         Some(Self { tag, width, height, pixels })
     }

@@ -5,7 +5,7 @@ use std::{collections::HashMap, f32::consts::PI};
 use lexpr::sexp;
 use base64::prelude::*;
 
-use crate::{assets, fig, terminal, toggle};
+use crate::{assets, terminal, toggle};
 
 pub enum RenderMode {
     Overlay,
@@ -19,7 +19,7 @@ pub struct Overlay {
     model_neck_base: glam::Mat4,
     model_fb: framebuffer::Framebuffer,
     terminal: terminal::Terminal,
-    fig: fig::Client,
+    fig: fig::SexpClient,
     tracking_eyes: (f32, f32),
     tracking_mouth: f32,
     tracking_neck: glam::Quat,
@@ -44,7 +44,7 @@ impl Overlay {
                 &glam::Vec2::ZERO
             ),
             terminal: terminal::Terminal::new(ctx, 64, 64),
-            fig: fig::Client::new("shiro:32050", &[
+            fig: fig::SexpClient::new("shiro:32050", &[
                 sexp!((avatar toggle)),
                 sexp!((avatar toggle set)),
                 sexp!((avatar toggle unset)),
@@ -70,7 +70,7 @@ impl Overlay {
         // TODO also reset terminal
         self.toggles.reset();
     }
-    pub fn handle_tracking(&mut self, msg: fig::Message) -> Option<()> {
+    pub fn handle_tracking(&mut self, msg: fig::SexpMessage) -> Option<()> {
         let eyes = msg.data.get(0)?;
         let eye_left = eyes.get(0)?.as_str()?.parse::<f32>().ok()?;
         let eye_right = eyes.get(1)?.as_str()?.parse::<f32>().ok()?;
@@ -84,14 +84,14 @@ impl Overlay {
         self.tracking_neck = glam::Quat::from_euler(glam::EulerRot::XYZ, euler_x, euler_y, euler_z);
         Some(())
     }
-    pub fn handle_text(&mut self, msg: fig::Message) -> Option<()> {
+    pub fn handle_text(&mut self, msg: fig::SexpMessage) -> Option<()> {
         let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
         let s = std::str::from_utf8(&bs).ok()?;
         log::info!("handle_text: {}", s);
         self.terminal.fill_string(s);
         Some(())
     }
-    pub fn handle_frame(&mut self, msg: fig::Message) -> Option<()> {
+    pub fn handle_frame(&mut self, msg: fig::SexpMessage) -> Option<()> {
         let data = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
         for (i, c) in data.chunks_exact(3).enumerate() {
             if let [r, g, b] = c {

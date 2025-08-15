@@ -1,10 +1,10 @@
 #![allow(dead_code, unused_variables)]
 mod assets;
 mod terminal;
-mod fig;
 mod background;
 mod toggle;
 mod overlay;
+mod input;
 
 use teleia::*;
 use clap::{command, Command};
@@ -29,10 +29,6 @@ pub fn main() -> Erm<()> {
         .subcommand(
             Command::new("model-multi-overlay")
                 .about("Run the LCOLONQ + Maude multi model renderer in a full-screen transparent overlay")
-        )
-        .subcommand(
-            Command::new("server")
-                .about("Run the LCOLONQ online websocket server")
         )
         .get_matches();
     match matches.subcommand() {

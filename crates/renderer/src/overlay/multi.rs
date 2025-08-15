@@ -29,7 +29,7 @@ impl Model {
             tracking_neck: glam::Quat::IDENTITY,
         }
     }
-    pub fn handle_tracking(&mut self, msg: fig::Message) -> Option<()> {
+    pub fn handle_tracking(&mut self, msg: fig::SexpMessage) -> Option<()> {
         let eyes = msg.data.get(0)?;
         let eye_left = eyes.get(0)?.as_str()?.parse::<f32>().ok()?;
         let eye_right = eyes.get(1)?.as_str()?.parse::<f32>().ok()?;
@@ -66,7 +66,7 @@ pub struct Overlay {
     models: Vec<Model>,
     fb: framebuffer::Framebuffer,
     term: terminal::Terminal,
-    fig: fig::Client,
+    fig: fig::SexpClient,
 }
 impl Overlay {
     pub fn new(ctx: &context::Context) -> Self {
@@ -83,7 +83,7 @@ impl Overlay {
             ),
             term: terminal::Terminal::new(ctx, 128, 64),
             models,
-            fig: fig::Client::new("shiro:32050", &[
+            fig: fig::SexpClient::new("shiro:32050", &[
                 sexp!((avatar toggle)),
                 sexp!((avatar toggle set)),
                 sexp!((avatar toggle unset)),
@@ -124,7 +124,7 @@ impl Overlay {
             )
         );
         tex.bind(ctx);
-        self.assets.mesh_square.render(ctx);
+        st.mesh_square.render(ctx);
     }
 }
 impl teleia::state::Game for Overlay {

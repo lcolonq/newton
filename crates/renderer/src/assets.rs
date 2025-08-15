@@ -4,7 +4,6 @@ pub struct Assets {
     pub font: font::Bitmap,
     pub shader_flat: shader::Shader,
     pub shader_scene: shader::Shader,
-    pub mesh_square: mesh::Mesh,
     pub texture_adblock: texture::Texture,
     pub texture_mod: texture::Texture,
     pub texture_operatop: texture::Texture,
@@ -25,7 +24,6 @@ impl Assets {
                 include_str!("assets/shaders/scene/vert.glsl"),
                 include_str!("assets/shaders/scene/frag.glsl")
             ),
-            mesh_square: mesh::Mesh::from_obj(ctx, include_bytes!("assets/meshes/square.obj")),
             texture_adblock: texture::Texture::new(ctx, include_bytes!("assets/textures/adblock.png")),
             texture_mod: texture::Texture::new(ctx, include_bytes!("assets/textures/mod.png")),
             texture_operatop: texture::Texture::new(ctx, include_bytes!("assets/textures/operatop.png")),
