@@ -2,11 +2,13 @@ use teleia::*;
 
 use glow::HasContext;
 
+use crate::overlay;
+
 const SCALE: usize = 15;
 const WIDTH: usize = 1920 / SCALE;
 const HEIGHT: usize = 1080 / SCALE;
 
-struct Pattern {
+pub struct Pattern {
     w: usize, h: usize,
     cells: Vec<bool>,
 }
@@ -36,7 +38,6 @@ impl Pattern {
             w, h,
             cells: vec![false; w * h],
         };
-        log::info!("dims: {w} {h} data: {data}");
         ret.populate(&data);
         Some(ret)
     }
@@ -52,7 +53,6 @@ impl Pattern {
     pub fn set(&mut self, x: i32, y: i32) {
         let idx = self.idx(x, y);
         self.cells[idx] = true;
-        log::info!("pattern: {x} {y}");
     }
     pub fn populate(&mut self, s: &str) {
         let mut run = 0;
@@ -127,7 +127,7 @@ impl CellBuffer {
     }
 }
 
-pub struct Board {
+pub struct Overlay {
     shader: shader::Shader,
     tex: texture::Texture,
     active: bool,
@@ -135,13 +135,13 @@ pub struct Board {
     buf1: CellBuffer,
     rules: [CellRule; 256],
 }
-impl Board {
+impl Overlay {
     pub fn new(ctx: &context::Context) -> Self {
         let rules = std::array::from_fn(|idx| match idx {
             0 => CellRule { color: glam::Vec4::new(0.0, 0.0, 0.0, 0.0) },
             _ => CellRule { color: glam::Vec4::new(1.0, 1.0, 1.0, 1.0) },
         });
-        Self {
+        let mut ret = Self {
             shader: shader::Shader::new(
                 ctx,
                 include_str!("../assets/shaders/automata/vert.glsl"),
@@ -152,24 +152,7 @@ impl Board {
             buf0: CellBuffer::new(),
             buf1: CellBuffer::new(),
             rules,
-        }
-    }
-    pub fn spawn(&mut self, x: i32, y: i32, c: Cell, pat: &Pattern) {
-        let cur = if self.active { &mut self.buf0 } else { &mut self.buf1 };
-        for uxoff in 0..pat.w {
-            for uyoff in 0..pat.h {
-                let xoff = uxoff as i32; let yoff = uyoff as i32;
-                cur.set(x + xoff, y + yoff, if pat.get(xoff, yoff) { c } else { 0 });
-            }
-        }
-    }
-    pub fn test_glider(&mut self) {
-        // let cur = if self.active { &mut self.buf0 } else { &mut self.buf1 };
-        // cur.set(1, 0, 1);
-        // cur.set(2, 1, 1);
-        // cur.set(0, 2, 1);
-        // cur.set(1, 2, 1);
-        // cur.set(2, 2, 1);
+        };
         if let Some(pat) = Pattern::from_rle("
 #N Tanner's p46
 #O Tanner Jacobi
@@ -180,7 +163,17 @@ x = 13, y = 26, rule = B3/S23
 2o2b$o7bobo2b$b2o6bo3b$b2o7b3o$12bo$13b$13b$13b$13b$13b$13b$b2o10b$b2o
 2b2o6b$5bobo5b$7bo5b$7b2o4b!
 ") {
-            self.spawn(30, 10, 1, &pat);
+            ret.spawn(30, 10, 1, &pat);
+        }
+        ret
+    }
+    pub fn spawn(&mut self, x: i32, y: i32, c: Cell, pat: &Pattern) {
+        let cur = if self.active { &mut self.buf0 } else { &mut self.buf1 };
+        for uxoff in 0..pat.w {
+            for uyoff in 0..pat.h {
+                let xoff = uxoff as i32; let yoff = uyoff as i32;
+                cur.set(x + xoff, y + yoff, if pat.get(xoff, yoff) { c } else { 0 });
+            }
         }
     }
     pub fn step(&mut self) {
@@ -223,13 +216,16 @@ x = 13, y = 26, rule = B3/S23
             ctx.gl.generate_mipmap(glow::TEXTURE_2D);
         }
     }
-    pub fn update(&mut self, ctx: &context::Context, st: &mut state::State) {
+}
+impl overlay::Overlay for Overlay {
+    fn update(&mut self, ctx: &context::Context, st: &mut state::State, _ost: &mut overlay::State) -> Erm<()> {
         if st.tick % 10 == 0 {
             self.step();
             self.upload(ctx);
         }
+        Ok(())
     }
-    pub fn render(&self, ctx: &context::Context, st: &mut state::State) {
+    fn render(&mut self, ctx: &context::Context, st: &mut state::State, _ost: &mut overlay::State) -> Erm<()> {
         st.bind_2d(ctx, &self.shader);
         self.tex.bind(ctx);
         self.shader.set_position_2d(
@@ -238,5 +234,6 @@ x = 13, y = 26, rule = B3/S23
             &glam::Vec2::new(1920.0, 1080.0)
         );
         st.mesh_square.render(ctx);
+        Ok(())
     }
 }

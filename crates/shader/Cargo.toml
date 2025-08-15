@@ -1,5 +1,5 @@
 [package]
-name = "newton_throwshade"
+name = "newton_shader"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

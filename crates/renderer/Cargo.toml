@@ -10,7 +10,7 @@ path = "src/main.rs"
 
 [dependencies]
 teleia = { git = "https://github.com/lcolonq/teleia" } # engine
-newton_throwshade = { path = "../throwshade" }
+newton_shader = { path = "../shader" }
 glam = "*" # linear algebra
 glow = "*" # gl bindings
 bitflags = "*" # C-style bitwise flags

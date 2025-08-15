@@ -3,13 +3,13 @@ use teleia::*;
 const VERT: &'static str = include_str!("assets/shaders/throwshade/vert.glsl");
 const FRAG: &'static str = include_str!("assets/shaders/throwshade/frag.glsl");
 
-pub struct ThrowShade {
+pub struct Visualizer {
     pub tickset: u64,
     pub timeset: f64,
     pub author: String,
     pub shader: Option<shader::Shader>,
 }
-impl ThrowShade {
+impl Visualizer {
     pub fn new() -> Self {
         Self {
             tickset: 0,

@@ -29,9 +29,9 @@
         };
       };
       wasm = {
-        throwshade = (inputs.teleia.wasm.build ./. "newton_throwshade").overrideAttrs (cur: prev: {
+        shader = (inputs.teleia.wasm.build ./. "newton_shader").overrideAttrs (cur: prev: {
           preBuild = ''
-            cd ./crates/throwshade
+            cd ./crates/shader
           '';
           postBuild = ''
             mv ./dist ../..

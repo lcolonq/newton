@@ -1,7 +1,6 @@
-CARGO_OPTS = --config 'patch."https://github.com/lcolonq/teleia".teleia.path="../teleia/crates/teleia"' \
-  --config 'patch."https://github.com/lcolonq/teleia".teleia_macros.path="../teleia/crates/teleia_macros"'
+CARGO_OPTS = --config 'patch."https://github.com/lcolonq/teleia".teleia.path="../teleia/crates/teleia"'
 
-.PHONY: build run rerun
+.PHONY: build
 
 build:
 	@mkdir -p .tmp/

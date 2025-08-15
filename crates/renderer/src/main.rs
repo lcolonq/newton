@@ -15,34 +15,26 @@ pub fn main() -> Erm<()> {
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
-            Command::new("shader-overlay")
-                .about("Run the shader display in a full-screen transparent overlay")
-        )
-        .subcommand(
-            Command::new("model-overlay")
-                .about("Run the LCOLONQ model renderer in a full-screen transparent overlay")
+            Command::new("overlay")
+                .about("Run the full-screen transparent overlay")
         )
         .subcommand(
             Command::new("model-terminal")
                 .about("Run the LCOLONQ model renderer in a terminal")
         )
-        .subcommand(
-            Command::new("model-multi-overlay")
-                .about("Run the LCOLONQ + Maude multi model renderer in a full-screen transparent overlay")
-        )
         .get_matches();
     match matches.subcommand() {
-        Some(("shader-overlay", _cm)) => {
-            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, overlay::shader::Overlay::new)?;
-        },
-        Some(("model-overlay", _cm)) => {
-            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, overlay::model::Overlay::overlay)?;
+        Some(("overlay", _cm)) => {
+            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, |ctx| {
+                overlay::Overlays::new(ctx, vec![
+                    Box::new(overlay::automata::Overlay::new(ctx)),
+                    Box::new(overlay::shader::Overlay::new(ctx)),
+                    Box::new(overlay::drawing::Overlay::new(ctx)),
+                ])
+            })?;
         },
         Some(("model-terminal", _cm)) => {
-            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::HIDDEN, overlay::model::Overlay::terminal)?;
-        },
-        Some(("model-multi-overlay", _cm)) => {
-            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::OVERLAY, overlay::multi::Overlay::new)?;
+            teleia::run("LCOLONQ", 1920, 1080, teleia::Options::HIDDEN, overlay::model::Terminal::new)?;
         },
         _ => unreachable!("no subcommand"),
     }

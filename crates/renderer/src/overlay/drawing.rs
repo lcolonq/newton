@@ -2,19 +2,19 @@ use teleia::*;
 
 use glow::HasContext;
 
-use crate::{background, input};
+use crate::{input, overlay};
 
 pub const SCALE: usize = 4;
 pub const WIDTH: usize = 1920 / SCALE;
 pub const HEIGHT: usize = 1080 / SCALE;
-pub struct Drawing {
+pub struct Overlay {
     pub tex: texture::Texture,
     pub pixels: [u8; WIDTH * HEIGHT],
     pub last_point: Option<(i32, i32)>,
     pub shader_white: shader::Shader,
     pub shader_background: shader::Shader,
 }
-impl Drawing {
+impl Overlay {
     pub fn new(ctx: &context::Context) -> Self {
         let shader_background = shader::Shader::new(
             ctx,
@@ -90,10 +90,12 @@ impl Drawing {
             ctx.gl.generate_mipmap(glow::TEXTURE_2D);
         }
     }
-    pub fn update(&mut self, ctx: &context::Context, st: &mut state::State, inp: &mut input::Input) {
-        match inp.get_command() {
+}
+impl overlay::Overlay for Overlay {
+    fn update(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State) -> Erm<()> {
+        match ost.input.get_command() {
             input::Command::Drawing => {
-                let (sx, sy) = inp.get_mouse();
+                let (sx, sy) = ost.input.get_mouse();
                 let x = sx / (SCALE as i32);
                 let y = sy / (SCALE as i32);
                 if let Some(last) = self.last_point {
@@ -110,19 +112,20 @@ impl Drawing {
             input::Command::None => {
                 self.last_point = None;
             },
-            _ => {},
         }
         self.upload(ctx);
+        Ok(())
     }
-    pub fn render(&self, ctx: &context::Context, st: &mut state::State, bg: &background::Backgrounds) {
+    fn render(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State) -> Erm<()> {
         st.bind_2d(ctx, &self.shader_background);
         self.tex.bind(ctx);
-        bg.drawing.bind_index(ctx, 1);
+        ost.backgrounds.drawing.bind_index(ctx, 1);
         self.shader_background.set_position_2d(
             ctx,
             &glam::Vec2::new(0.0, 0.0),
             &glam::Vec2::new(1920.0, 1080.0)
         );
         st.mesh_square.render(ctx);
+        Ok(())
     }
 }
