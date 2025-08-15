@@ -123,11 +123,11 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1753672119,
-        "narHash": "sha256-09S/vceFCJHsSTxmH+iZTumzxDuWg5BPI647XRHqWTg=",
+        "lastModified": 1755247733,
+        "narHash": "sha256-HJfuS2iOWAGdlepd6obWQHz4z3dKs+NqbRTFKFDpk6k=",
         "owner": "lcolonq",
         "repo": "teleia",
-        "rev": "8fc51be33a9df4efdef1544ef14ed71821422b81",
+        "rev": "1da3eb369306ab5b88f580716201cf1fa4979936",
         "type": "github"
       },
       "original": {

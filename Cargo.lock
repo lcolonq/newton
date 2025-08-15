@@ -2984,7 +2984,7 @@ dependencies = [
 [[package]]
 name = "teleia"
 version = "0.1.0"
-source = "git+https://github.com/lcolonq/teleia#a7fea4499ed84a9cb62775ddc198e63ec62ddd5a"
+source = "git+https://github.com/lcolonq/teleia#1da3eb369306ab5b88f580716201cf1fa4979936"
 dependencies = [
  "bimap",
  "bincode",

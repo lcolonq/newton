@@ -38,24 +38,24 @@ impl Visualizer {
 cfg_if::cfg_if! {
     if #[cfg(target_arch = "wasm32")] {
         struct Game {
-            throwshade: ThrowShade,
+            visualizer: Visualizer,
         }
         impl Game {
             pub fn new(_ctx: &context::Context) -> Self {
                 Self {
-                    throwshade: ThrowShade::new(),
+                    visualizer: Visualizer::new(),
                 }
             }
         }
         impl state::Game for Game {
             fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Erm<()> {
-                if let Some(s) = &self.throwshade.shader {
+                if let Some(s) = &self.visualizer.shader {
                     ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
                     ctx.clear();
                     s.bind(ctx);
                     s.set_f32(ctx, "opacity", 0.5);
                     s.set_vec2(ctx, "resolution", &glam::Vec2::new(ctx.render_width, ctx.render_height));
-                    let elapsed = (st.tick - self.throwshade.tickset) as f32 / 60.0;
+                    let elapsed = (st.tick - self.visualizer.tickset) as f32 / 60.0;
                     s.set_f32(ctx, "time", elapsed);
                     ctx.render_no_geometry();
                 }
@@ -72,9 +72,9 @@ cfg_if::cfg_if! {
         pub async fn set_shader(s: &str) -> Result<(), String> {
             contextualize(|ctx, st, g: &mut Game| {
                 log::info!("set shader: {}", s);
-                if let Err(e) = g.throwshade.set(ctx, st, &s) {
+                if let Err(e) = g.visualizer.set(ctx, st, &s) {
                     log::warn!("error compiling shader: {}", e);
-                    g.throwshade.shader = None;
+                    g.visualizer.shader = None;
                     return Err(format!("{}", e));
                 }
                 Ok(())
