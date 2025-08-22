@@ -70,6 +70,7 @@ impl State {
                 sexp!((avatar overlay chat)),
                 sexp!((avatar overlay cursor)),
                 sexp!((avatar overlay emacs)),
+                sexp!((avatar automata spawn)),
             ]),
             fig_binary: fig::BinaryClient::new("shiro:32051", false, &[
                 b"background frame"
@@ -146,44 +147,6 @@ impl State {
         );
         let (x, y) = self.input.get_mouse();
         self.mouse_cursor = (x as f32, y as f32);
-        while let Some(msg) = self.fig.pump() {
-            let malformed = format!("malformed {} data: {}", msg.event, msg.data);
-            if msg.event == sexp!((avatar tracking)) {
-                if self.handle_tracking(msg).is_none() { log::warn!("{}", malformed) }
-            } else if msg.event == sexp!((avatar reset)) {
-                self.reset(ctx, st);
-            } else if msg.event == sexp!((avatar toggle)) {
-                if self.toggles.handle(ctx, st, msg).is_none() { log::warn!("{}", malformed) }
-            } else if msg.event == sexp!((avatar toggle set)) {
-                if self.toggles.handle_set(ctx, st, msg, true).is_none() { log::warn!("{}", malformed) }
-            } else if msg.event == sexp!((avatar toggle unset)) {
-                if self.toggles.handle_set(ctx, st, msg, false).is_none() { log::warn!("{}", malformed) }
-            } else if msg.event == sexp!((avatar overlay muzak)) {
-                if self.handle_overlay_muzak(msg).is_none() { log::warn!("{}", malformed) }
-            } else if msg.event == sexp!((avatar overlay muzak clear)) {
-                if self.handle_overlay_muzak_clear().is_none() { log::warn!("{}", malformed) }
-            } else if msg.event == sexp!((avatar overlay chat)) {
-                if self.handle_overlay_chat(msg).is_none() { log::warn!("{}", malformed) }
-            } else if msg.event == sexp!((avatar overlay cursor)) {
-                if self.handle_overlay_cursor(msg).is_none() { log::warn!("{}", malformed) }
-            } else {
-                log::info!("received unhandled event {} with data: {}", msg.event, msg.data);
-            }
-        }
-        while let Some(msg) = self.fig_binary.pump() {
-            match &*msg.event {
-                b"background frame" => {
-                    if let Some(f) = background::Frame::parse(&mut &*msg.data) {
-                        self.backgrounds.update(ctx, f);
-                    } else {
-                        log::warn!("failed to parse frame");
-                    }
-                },
-                ev => {
-                    log::info!("unhandled event: {:?}", ev);
-                },
-            }
-        }
         if let Some(n) = self.model.nodes_by_name.get("J_Bip_C_Neck").and_then(|i| self.model.nodes.get_mut(*i)) {
             n.transform = self.model_neck_base * glam::Mat4::from_quat(self.tracking_neck);
         }
@@ -233,7 +196,46 @@ impl teleia::state::Game for Overlays {
             &glam::Vec3::new(0.0, 0.0, -1.0),
             &glam::Vec3::new(0.0, 1.0, 0.0),
         );
-        self.state.reset(ctx, st);
+        while let Some(msg) = self.state.fig.pump() {
+            let malformed = format!("malformed {} data: {}", msg.event, msg.data);
+            for ov in self.overlays.iter_mut() {
+                ov.handle(ctx, st, &mut self.state, msg.clone())?;
+            }
+            if msg.event == sexp!((avatar tracking)) {
+                if self.state.handle_tracking(msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar reset)) {
+                self.reset(ctx, st)?;
+            } else if msg.event == sexp!((avatar toggle)) {
+                if self.state.toggles.handle(ctx, st, msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar toggle set)) {
+                if self.state.toggles.handle_set(ctx, st, msg, true).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar toggle unset)) {
+                if self.state.toggles.handle_set(ctx, st, msg, false).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay muzak)) {
+                if self.state.handle_overlay_muzak(msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay muzak clear)) {
+                if self.state.handle_overlay_muzak_clear().is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay chat)) {
+                if self.state.handle_overlay_chat(msg).is_none() { log::warn!("{}", malformed) }
+            } else if msg.event == sexp!((avatar overlay cursor)) {
+                if self.state.handle_overlay_cursor(msg).is_none() { log::warn!("{}", malformed) }
+            }
+        }
+        while let Some(msg) = self.state.fig_binary.pump() {
+            match &*msg.event {
+                b"background frame" => {
+                    if let Some(f) = background::Frame::parse(&mut &*msg.data) {
+                        self.state.backgrounds.update(ctx, f);
+                    } else {
+                        log::warn!("failed to parse frame");
+                    }
+                },
+                ev => {
+                    log::info!("unhandled event: {:?}", ev);
+                },
+            }
+        }
+        self.state.update(ctx, st)?;
         for ov in self.overlays.iter_mut() {
             ov.update(ctx, st, &mut self.state)?;
         }
