@@ -93,7 +93,7 @@ impl overlay::Overlay for Overlay {
             authors.push(format!("music by {}", a));
         }
         let astr: String = authors.join(", ");
-        ost.assets.font.render_text(ctx, &glam::Vec2::new(0.0, 0.0), &astr);
+        ost.assets.font.render_text(ctx, st, &glam::Vec2::new(0.0, 0.0), &astr);
         Ok(())
     }
 }

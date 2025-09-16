@@ -194,7 +194,7 @@ impl Terminal {
         }
         return (CharPair { first: ' ', second: Some(' ') }, glam::Vec3::new(0.0, 0.0, 0.0));
     }
-    pub fn render(&self, ctx: &context::Context, pos: &glam::Vec2) {
+    pub fn render(&self, ctx: &context::Context, st: &state::State, pos: &glam::Vec2) {
         let mut s = String::new();
         let mut colors = Vec::new();
         for row in 0..self.height {
@@ -207,7 +207,7 @@ impl Terminal {
             s += "\n";
             colors.push(glam::Vec3::new(1.0, 1.0, 1.0));
         }
-        self.font.render_text_helper(ctx, pos, &s, &colors);
+        self.font.render_text_helper(ctx, st, pos, &s, &colors);
     }
     pub fn write_tty<W>(&self, out: &mut W)
     where W: Write {

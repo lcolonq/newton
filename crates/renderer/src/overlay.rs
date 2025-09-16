@@ -2,6 +2,7 @@ pub mod model;
 pub mod shader;
 pub mod drawing;
 pub mod automata;
+pub mod irish;
 
 use teleia::*;
 
@@ -71,6 +72,9 @@ impl State {
                 sexp!((avatar overlay cursor)),
                 sexp!((avatar overlay emacs)),
                 sexp!((avatar automata spawn)),
+                sexp!((overlay irish start)),
+                sexp!((overlay irish update)),
+                sexp!((overlay irish save)),
             ]),
             fig_binary: fig::BinaryClient::new("shiro:32051", false, &[
                 b"background frame"

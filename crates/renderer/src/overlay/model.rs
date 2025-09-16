@@ -52,7 +52,7 @@ impl teleia::state::Game for Terminal {
         self.terminal.update(ctx, &self.model_fb);
         ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
         ctx.clear();
-        self.terminal.render(ctx, &glam::Vec2::new(12.0, 250.0));
+        self.terminal.render(ctx, st, &glam::Vec2::new(12.0, 250.0));
         Ok(())
     }
 }
@@ -119,7 +119,7 @@ impl overlay::Overlay for Overlay {
         self.terminal.update(ctx, &self.model_fb);
         ctx.clear_color(glam::Vec4::new(0.0, 0.0, 0.0, 0.0));
         ctx.clear();
-        self.terminal.render(ctx, &glam::Vec2::new(12.0, 250.0));
+        self.terminal.render(ctx, st, &glam::Vec2::new(12.0, 250.0));
         st.projection = old_projection;
         Ok(())
     }

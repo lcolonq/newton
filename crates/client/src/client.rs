@@ -31,7 +31,7 @@ impl teleia::state::Game for Game {
     fn render(&mut self, ctx: &context::Context, st: &mut state::State) -> Erm<()> {
         ctx.clear();
         self.assets.font.render_text(
-            ctx,
+            ctx, st,
             &glam::Vec2::new(0.0, 0.0),
             "hello computer",
         );
