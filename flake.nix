@@ -44,6 +44,9 @@
         inherit native wasm;
         st = inputs.st.packages.x86_64-linux.st;
       };
-      devShells.${system}.default = inputs.teleia.shell;
+      devShells.${system}.default = inputs.teleia.shell.overrideAttrs (final: prev: {
+        buildInputs = prev.buildInputs ++ [
+        ];
+      });
     };
 }

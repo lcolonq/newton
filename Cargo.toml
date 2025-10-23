@@ -18,4 +18,5 @@ strip = true
 # debug = "full"
 
 [profile.dev.package."*"]
+debug = 0
 opt-level = 2

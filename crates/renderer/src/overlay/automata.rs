@@ -115,6 +115,7 @@ impl CellBuffer {
     pub fn get(&self, x: i32, y: i32) -> Cell {
         self.buf[Self::idx(x, y)]
     }
+
     pub fn neighbors(&self, x: i32, y: i32) -> [Cell; 8] {
         [ self.get(x-1, y-1),
           self.get(x, y-1),

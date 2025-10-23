@@ -27,3 +27,5 @@ termion = "*" # terminal escapes
 device_query = "*" # get pressed keys when unfocused
 byteorder = "*" # read little-endian numbers
 image = "*" # read and write image files
+cpal = "*" # record microphone
+redis = "*" # database

@@ -3,6 +3,7 @@ pub mod shader;
 pub mod drawing;
 pub mod automata;
 pub mod irish;
+pub mod loopback;
 
 use teleia::*;
 
