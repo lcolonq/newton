@@ -16,6 +16,7 @@ fn ffmpeg_to_adts(sample_rate: u32, samples: &[f32]) -> Option<Vec<u8>> {
             "-ac", "2",
             "-i", "pipe:0",
             "-vn",
+            "-frame_size:a", "1024",
             "-c:a", "aac",
             "-ar:a", "48000",
             "-f", "mpegts",
