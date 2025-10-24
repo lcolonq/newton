@@ -6,6 +6,8 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
 use crate::overlay;
 
+const SEGMENT_LENGTH: f32 = 4.8;
+
 fn ffmpeg_to_adts(sample_rate: u32, samples: &[f32]) -> Option<Vec<u8>> {
     let proc = process::Command::new("ffmpeg")
         .args([
@@ -15,6 +17,7 @@ fn ffmpeg_to_adts(sample_rate: u32, samples: &[f32]) -> Option<Vec<u8>> {
             "-i", "pipe:0",
             "-vn",
             "-c:a", "aac",
+            "-ar:a", "48000",
             "-f", "mpegts",
             "pipe:1"
         ])
@@ -65,7 +68,7 @@ impl Overlay {
             &config.into(),
             move |samples: &[f32], info| {
                 buf.extend_from_slice(samples);
-                let upload_size = (3 * 2 * sample_rate) as usize;
+                let upload_size = (SEGMENT_LENGTH * 2.0 * sample_rate as f32) as usize;
                 if buf.len() > upload_size {
                     upload_sample(&mut redis_conn, sequence, sample_rate, &buf[0..upload_size]);
                     buf.drain(0..upload_size);
