@@ -16,10 +16,10 @@ fn ffmpeg_to_adts(sample_rate: u32, samples: &[f32]) -> Option<Vec<u8>> {
             "-ac", "2",
             "-i", "pipe:0",
             "-vn",
-            "-frame_size:a", "1024",
             "-c:a", "aac",
-            "-ar:a", "48000",
-            "-f", "mpegts",
+            "-f", "adts",
+            "-ar", "48000",
+            "-ac", "2",
             "pipe:1"
         ])
         .stdin(process::Stdio::piped())
@@ -43,7 +43,6 @@ fn upload_sample(conn: &mut redis::Connection, sequence: u32, sample_rate: u32, 
     let max: f32 = *sample.iter().max_by(|x, y| f32::total_cmp(x, y)).unwrap();
     let cells = (max / 0.1) as usize;
     let adts = ffmpeg_to_adts(sample_rate, sample).unwrap();
-    println!("{} {} {}", sample.len(), adts.len(), "#".repeat(cells));
     let _: () = conn.lpush("hlssamples", adts).unwrap();
     let _: () = conn.ltrim("hlssamples", 0, 10).unwrap();
     let _: () = conn.set("hlssequence", sequence).unwrap();

@@ -79,7 +79,7 @@ impl overlay::Overlay for Overlay {
             let tr = 1.0 - ((st.tick - t.set_time) as f32 / 60.0).clamp(0.0, 1.0);
             ost.assets.shader_flat.set_f32(ctx, "transparency", tr);
             ost.assets.shader_flat.set_position_2d(
-                ctx,
+                ctx, st,
                 &glam::Vec2::new(1100.0, 300.0),
                 &glam::Vec2::new(800.0, 600.0)
             );

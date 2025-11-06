@@ -3,6 +3,7 @@ pub mod shader;
 pub mod drawing;
 pub mod automata;
 pub mod irish;
+pub mod tcg;
 pub mod loopback;
 
 use teleia::*;
@@ -78,7 +79,8 @@ impl State {
                 sexp!((overlay irish save)),
             ]),
             fig_binary: fig::BinaryClient::new("shiro:32051", false, &[
-                b"background frame"
+                b"background frame",
+                b"overlay tcg generate",
             ]),
             tracking_eyes: (1.0, 1.0),
             tracking_mouth: 0.0,
@@ -169,6 +171,9 @@ pub trait Overlay {
     fn handle(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut State, msg: fig::SexpMessage) -> Erm<()> {
         Ok(())
     }
+    fn handle_binary(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut State, msg: fig::BinaryMessage) -> Erm<()> {
+        Ok(())
+    }
     fn render(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut State) -> Erm<()> {
         Ok(())
     }
@@ -235,8 +240,10 @@ impl teleia::state::Game for Overlays {
                         log::warn!("failed to parse frame");
                     }
                 },
-                ev => {
-                    log::info!("unhandled event: {:?}", ev);
+                _ => {
+                    for ov in self.overlays.iter_mut() {
+                        ov.handle_binary(ctx, st, &mut self.state, msg.clone())?;
+                    }
                 },
             }
         }

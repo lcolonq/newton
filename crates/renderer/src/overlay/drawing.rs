@@ -121,7 +121,7 @@ impl overlay::Overlay for Overlay {
         self.tex.bind(ctx);
         ost.backgrounds.drawing.bind_index(ctx, 1);
         self.shader_background.set_position_2d(
-            ctx,
+            ctx, st,
             &glam::Vec2::new(0.0, 0.0),
             &glam::Vec2::new(1920.0, 1080.0)
         );

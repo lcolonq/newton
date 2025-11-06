@@ -3,7 +3,7 @@ use teleia::*;
 use lexpr::sexp;
 use base64::prelude::*;
 
-use crate::{fig, overlay, toggle};
+use crate::{fig, overlay};
 
 pub const WIDTH: f32 = 500.0;
 pub const HEIGHT: f32 = 700.0;
@@ -102,7 +102,7 @@ impl overlay::Overlay for Overlay {
             st.bind_2d(ctx, &self.shader);
             self.fb.bind_texture(ctx);
             self.shader.set_position_2d(
-                ctx,
+                ctx, st,
                 &glam::Vec2::new(1000.0, 200.0),
                 &glam::Vec2::new(WIDTH, HEIGHT)
             );

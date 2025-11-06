@@ -42,7 +42,7 @@ impl teleia::state::Game for Terminal {
         ctx.clear();
         st.bind_3d(ctx, &self.ost.assets.shader_scene);
         self.ost.assets.shader_scene.set_position_3d(
-            ctx,
+            ctx, st, 
             &glam::Mat4::from_translation(
                 glam::Vec3::new(0.0, -1.63, 0.42),
             ),
@@ -109,7 +109,7 @@ impl overlay::Overlay for Overlay {
         ctx.clear();
         st.bind_3d(ctx, &ost.assets.shader_scene);
         ost.assets.shader_scene.set_position_3d(
-            ctx,
+            ctx, st,
             &glam::Mat4::from_translation(
                 glam::Vec3::new(0.0, -1.63, 0.42),
             ),
