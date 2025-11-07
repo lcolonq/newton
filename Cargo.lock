@@ -3385,7 +3385,7 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 [[package]]
 name = "teleia"
 version = "0.1.0"
-source = "git+https://github.com/lcolonq/teleia#71b22b03b51aaba01df786f70becb03a30429f03"
+source = "git+https://github.com/lcolonq/teleia#9e95cb43f1dbc9e63c9e3df2472c36e38e19fc88"
 dependencies = [
  "bimap",
  "bincode",
@@ -3411,6 +3411,7 @@ dependencies = [
  "log",
  "nalgebra",
  "parry3d",
+ "polling",
  "rand",
  "rapier3d",
  "reqwest",

@@ -1,9 +1,8 @@
 use teleia::*;
 
 use glow::HasContext;
-use lexpr::sexp;
-use base64::prelude::*;
 use rand::Rng;
+use byteorder::{LE, ReadBytesExt};
 
 use crate::overlay;
 
@@ -237,26 +236,6 @@ impl Overlay {
             ctx.gl.generate_mipmap(glow::TEXTURE_2D);
         }
     }
-    pub fn handle_spawn(&mut self, msg: fig::SexpMessage) -> Option<()> {
-        let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
-        let s = std::str::from_utf8(&bs).ok()?;
-        let bcol = BASE64_STANDARD.decode(msg.data.get(2)?.as_str()?).ok()?;
-        let scol = std::str::from_utf8(&bcol).ok()?.trim().strip_prefix("#")?;
-        let col = u32::from_str_radix(scol, 16).ok()?;
-        let r = (col >> 16 & 0xff) as u8;
-        let g = (col >> 8 & 0xff) as u8;
-        let b = (col & 0xff) as u8;
-        if let Some(pat) = Pattern::from_rle(s) {
-            let mut rng = rand::thread_rng();
-            let x = rng.gen_range(0..WIDTH);
-            let y = rng.gen_range(0..HEIGHT);
-            self.rules[self.next_rule] = CellRule { color: [r, g, b, 0xff] };
-            self.spawn(x as i32, y as i32, self.next_rule as u8, &pat);
-            self.next_rule = (self.next_rule + 1) % 256;
-            if self.next_rule == 0 { self.next_rule = 1; }
-        }
-        Some(())
-    }
 }
 impl overlay::Overlay for Overlay {
     fn reset(&mut self, ctx: &context::Context, st: &mut state::State, _ost: &mut overlay::State) -> Erm<()> {
@@ -268,13 +247,31 @@ impl overlay::Overlay for Overlay {
         }
         Ok(())
     }
-    fn handle(
+    fn handle_binary(
         &mut self, ctx: &context::Context, st: &mut state::State, _ost: &mut overlay::State,
-        msg: fig::SexpMessage,
+        msg: &fig::BinaryMessage,
     ) -> Erm<()> {
-        let malformed = format!("malformed {} data: {}", msg.event, msg.data);
-        if msg.event == sexp!((avatar automata spawn)) {
-            if self.handle_spawn(msg).is_none() { log::warn!("{}", malformed) }
+        if msg.event == b"overlay automata spawn" {
+            let res: Erm<()> = (|| {
+                let mut reader = std::io::Cursor::new(&msg.data);
+                let rle = fig::read_length_prefixed_utf8(&mut reader)?;
+                let _user = fig::read_length_prefixed_utf8(&mut reader)?;
+                let col = reader.read_u32::<LE>()?;
+                let r = (col >> 16 & 0xff) as u8;
+                let g = (col >> 8 & 0xff) as u8;
+                let b = (col & 0xff) as u8;
+                if let Some(pat) = Pattern::from_rle(&rle) {
+                    let mut rng = rand::thread_rng();
+                    let x = rng.gen_range(0..WIDTH);
+                    let y = rng.gen_range(0..HEIGHT);
+                    self.rules[self.next_rule] = CellRule { color: [r, g, b, 0xff] };
+                    self.spawn(x as i32, y as i32, self.next_rule as u8, &pat);
+                    self.next_rule = (self.next_rule + 1) % 256;
+                    if self.next_rule == 0 { self.next_rule = 1; }
+                }
+                Ok(())
+            })();
+            if let Err(e) = res { log::warn!("malformed automata spawn update: {}", e); }
         }
         Ok(())
     }

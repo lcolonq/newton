@@ -30,7 +30,6 @@ pub fn main() -> Erm<()> {
                     Box::new(overlay::automata::Overlay::new(ctx)),
                     Box::new(overlay::shader::Overlay::new(ctx)),
                     Box::new(overlay::drawing::Overlay::new(ctx)),
-                    Box::new(overlay::irish::Overlay::new(ctx)),
                     Box::new(overlay::tcg::Overlay::new(ctx)),
                     // Box::new(overlay::model::Overlay::new(ctx)),
                     // Box::new(overlay::loopback::Overlay::new(ctx)),

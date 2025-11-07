@@ -1,9 +1,6 @@
 use teleia::*;
 
-use lexpr::sexp;
-use base64::prelude::*;
-
-use crate::{fig, overlay, toggle};
+use crate::{overlay, toggle};
 
 pub struct Overlay {
     visualizer: newton_shader::Visualizer,
@@ -16,22 +13,6 @@ impl Overlay {
             visualizer,
         }
     }
-    pub fn handle_overlay_shader(
-        &mut self,
-        ctx: &context::Context, st: &state::State,
-        msg: fig::SexpMessage
-    ) -> Option<()> {
-        let ba = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
-        let author = String::from_utf8_lossy(&ba);
-        let bs = BASE64_STANDARD.decode(msg.data.get(1)?.as_str()?).ok()?;
-        let s = String::from_utf8_lossy(&bs);
-        self.visualizer.author = author.to_string();
-        if let Err(e) = self.visualizer.set(ctx, st, &s) {
-            log::warn!("error compiling shader: {}", e);
-            self.visualizer.shader = None;
-        }
-        Some(())
-    }
 }
 
 impl overlay::Overlay for Overlay {
@@ -40,10 +21,20 @@ impl overlay::Overlay for Overlay {
         self.visualizer.shader = None;
         Ok(())
     }
-    fn handle(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State, msg: fig::SexpMessage) -> Erm<()> {
-        if msg.event == sexp!((avatar overlay shader)) {
-            let malformed = format!("malformed {} data: {}", msg.event, msg.data);
-            if self.handle_overlay_shader(ctx, st, msg).is_none() { log::warn!("{}", malformed) }
+    fn handle_binary(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State, msg: &fig::BinaryMessage) -> Erm<()> {
+        if msg.event == b"overlay shader" {
+            let res: Erm<()> = (|| {
+                let mut reader = std::io::Cursor::new(&msg.data);
+                let author = fig::read_length_prefixed_utf8(&mut reader)?;
+                let shader = fig::read_length_prefixed_utf8(&mut reader)?;
+                self.visualizer.author = author.to_string();
+                if let Err(e) = self.visualizer.set(ctx, st, &shader) {
+                    log::warn!("error compiling shader: {}", e);
+                    self.visualizer.shader = None;
+                }
+                Ok(())
+            })();
+            if let Err(e) = res { log::warn!("malformed shader update: {}", e); }
         }
         Ok(())
     }
@@ -63,15 +54,14 @@ impl overlay::Overlay for Overlay {
             s.set_vec2(ctx, "resolution", &glam::Vec2::new(ctx.render_width, ctx.render_height));
             let elapsed = (st.tick - self.visualizer.tickset) as f32 / 60.0;
             s.set_f32(ctx, "time", elapsed);
-            s.set_f32(ctx, "chat_time", (ost.chat.time - self.visualizer.timeset) as f32);
+            s.set_f32(ctx, "chat_time", ost.chat.time - self.visualizer.timeset as f32);
             ctx.render_no_geometry();
-            s.set_f32(ctx, "tracking_mouth", ost.tracking_mouth);
-            // log::info!("eyes: {:?}", self.tracking_eyes);
-            s.set_vec2(ctx, "tracking_eyes", &glam::Vec2::new(ost.tracking_eyes.0, ost.tracking_eyes.1));
-            s.set_mat4(ctx, "tracking_neck", &glam::Mat4::from_quat(ost.tracking_neck));
-            s.set_vec2(ctx, "emacs_cursor", &glam::Vec2::new(ost.emacs_cursor.0, ost.emacs_cursor.1));
-            s.set_vec2(ctx, "mouse_cursor", &glam::Vec2::new(ost.mouse_cursor.0, ost.mouse_cursor.1));
-            s.set_i32(ctx, "heartrate", ost.emacs_heartrate);
+            s.set_f32(ctx, "tracking_mouth", ost.tracking.mouth);
+            s.set_vec2(ctx, "tracking_eyes", &glam::Vec2::new(ost.tracking.eyes.0, ost.tracking.eyes.1));
+            s.set_mat4(ctx, "tracking_neck", &glam::Mat4::from_quat(ost.tracking.neck));
+            s.set_vec2(ctx, "emacs_cursor", &glam::Vec2::new(ost.info.emacs_cursor.0, ost.info.emacs_cursor.1));
+            s.set_vec2(ctx, "mouse_cursor", &glam::Vec2::new(ost.info.mouse_cursor.0, ost.info.mouse_cursor.1));
+            s.set_i32(ctx, "heartrate", ost.info.emacs_heartrate);
         }
         if let Some(t@toggle::Toggle { val: true, .. }) = ost.toggles.get(ctx, st, "adblock") {
             st.bind_2d(ctx, &ost.assets.shader_flat);
@@ -89,7 +79,7 @@ impl overlay::Overlay for Overlay {
         if let Some(_) = &self.visualizer.shader {
             authors.push(format!("shader by {}", self.visualizer.author));
         }
-        if let Some(a) = &ost.muzak_author {
+        if let Some(a) = &ost.info.muzak_author {
             authors.push(format!("music by {}", a));
         }
         let astr: String = authors.join(", ");

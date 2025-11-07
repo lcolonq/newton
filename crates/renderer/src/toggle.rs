@@ -1,8 +1,6 @@
 use teleia::*;
 use std::collections::HashMap;
 
-use crate::fig;
-
 #[derive(Debug, Clone)]
 pub struct Toggle {
     pub val: bool,
@@ -27,15 +25,25 @@ impl Toggles {
     pub fn reset(&mut self) {
         self.toggles.clear();
     }
-    pub fn handle(&mut self, ctx: &context::Context, st: &state::State, msg: fig::SexpMessage) -> Option<()> {
-        let nm = msg.data.get(0)?.as_str()?;
+    pub fn handle(&mut self,
+        ctx: &context::Context, st: &state::State,
+        msg: fig::BinaryMessage
+    ) {
+        let nm = if let Ok(s) = str::from_utf8(&msg.data) { s } else {
+            log::warn!("failed to decode toggle name");
+            return;
+        };
         let prev = self.get(ctx, st, nm).map(|t| t.val).unwrap_or(false);
         self.set(ctx, st, nm, !prev);
-        Some(())
     }
-    pub fn handle_set(&mut self, ctx: &context::Context, st: &state::State, msg: fig::SexpMessage, val: bool) -> Option<()> {
-        let nm = msg.data.get(0)?.as_str()?;
+    pub fn handle_set(&mut self,
+        ctx: &context::Context, st: &state::State,
+        msg: fig::BinaryMessage, val: bool
+    ) {
+        let nm = if let Ok(s) = str::from_utf8(&msg.data) { s } else {
+            log::warn!("failed to decode toggle name");
+            return;
+        };
         self.set(ctx, st, nm, val);
-        Some(())
     }
 }

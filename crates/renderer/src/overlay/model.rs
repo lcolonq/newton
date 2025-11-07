@@ -2,8 +2,6 @@ use teleia::*;
 use termion::raw::IntoRawMode;
 
 use std::f32::consts::PI;
-use lexpr::sexp;
-use base64::prelude::*;
 
 use crate::{overlay, terminal};
 
@@ -72,13 +70,6 @@ impl Overlay {
             ),
         }
     }
-    pub fn handle_text(&mut self, msg: fig::SexpMessage) -> Option<()> {
-        let bs = BASE64_STANDARD.decode(msg.data.get(0)?.as_str()?).ok()?;
-        let s = std::str::from_utf8(&bs).ok()?;
-        log::info!("handle_text: {}", s);
-        self.terminal.fill_string(s);
-        Some(())
-    }
     fn render_model(&mut self, ctx: &context::Context, st: &mut state::State) -> Option<()> {
         // self.model_fb.blit(
         //     ctx, &st.render_framebuffer,
@@ -90,10 +81,12 @@ impl Overlay {
 }
 
 impl overlay::Overlay for Overlay {
-    fn handle(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State, msg: fig::SexpMessage) -> Erm<()> {
-        let malformed = format!("malformed {} data: {}", msg.event, msg.data);
-        if msg.event == sexp!((avatar text)) {
-            if self.handle_text(msg).is_none() { log::warn!("{}", malformed) }
+    fn handle_binary(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State, msg: &fig::BinaryMessage) -> Erm<()> {
+        if msg.event == b"overlay avatar text" {
+            match str::from_utf8(&msg.data) {
+                Ok(s) => self.terminal.fill_string(s),
+                Err(e) => log::warn!("malformed avatar text update: {}", e),
+            }
         }
         Ok(())
     }
