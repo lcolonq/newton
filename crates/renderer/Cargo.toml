@@ -9,7 +9,7 @@ name = "newton_renderer"
 path = "src/main.rs"
 
 [dependencies]
-teleia = { git = "https://github.com/lcolonq/teleia" } # engine
+teleia = { workspace = true }
 newton_shader = { path = "../shader" }
 glam = "*" # linear algebra
 glow = "*" # gl bindings
@@ -29,3 +29,4 @@ byteorder = "*" # read little-endian numbers
 image = "*" # read and write image files
 cpal = "*" # record microphone
 redis = "*" # database
+web-image-meta = "*" # edit image metadata

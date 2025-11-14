@@ -20,3 +20,7 @@ strip = true
 [profile.dev.package."*"]
 debug = 0
 opt-level = 2
+
+[workspace.dependencies]
+# teleia = { git = "https://github.com/lcolonq/teleia" } # engine
+teleia = { path = "../teleia/crates/teleia" } # engine

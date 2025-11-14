@@ -44,6 +44,8 @@ pub struct Info {
 
 pub struct State {
     assets: assets::Assets,
+    redis: redis::Client,
+    redis_conn: redis::Connection,
     model: scene::Scene,
     model_neck_base: glam::Mat4,
     fig_binary: fig::BinaryClient,
@@ -61,8 +63,11 @@ impl State {
             .and_then(|i| model.nodes.get(*i))
             .expect("failed to find neck joint")
             .transform;
+        let redis = redis::Client::open("redis://shiro").unwrap();
+        let redis_conn = redis.get_connection().unwrap();
         Self {
             assets: assets::Assets::new(ctx),
+            redis, redis_conn,
             model,
             model_neck_base,
             fig_binary: fig::BinaryClient::new("shiro:32051", &[
@@ -166,6 +171,9 @@ impl teleia::state::Game for Overlays {
             for ov in self.overlays.iter_mut() {
                 ov.handle_binary(ctx, st, &mut self.state, &msg)?;
             }
+            if let Ok(t) = str::from_utf8(&msg.event) {
+                log::info!("incoming: {}", t);
+            }
             match &*msg.event {
                 b"overlay reset" => self.reset(ctx, st)?,
                 b"overlay tracking" => {
@@ -206,8 +214,8 @@ impl teleia::state::Game for Overlays {
                 b"overlay info emacs cursor" => {
                     let res: Erm<()> = (|| {
                         let mut reader = std::io::Cursor::new(&msg.data);
-                        let cursor_x = reader.read_f32::<LE>()?;
-                        let cursor_y = reader.read_f32::<LE>()?;
+                        let cursor_x = fig::read_length_prefixed_utf8(&mut reader)?.parse()?;
+                        let cursor_y = fig::read_length_prefixed_utf8(&mut reader)?.parse()?;
                         self.state.info.emacs_cursor = (cursor_x, cursor_y);
                         Ok(())
                     })();
@@ -223,8 +231,8 @@ impl teleia::state::Game for Overlays {
                         let mut reader = std::io::Cursor::new(&msg.data);
                         let author = fig::read_length_prefixed_utf8(&mut reader)?;
                         let msg = fig::read_length_prefixed_utf8(&mut reader)?;
-                        let time = reader.read_f32::<LE>()?;
-                        let biblicality = reader.read_f32::<LE>()?;
+                        let time = fig::read_length_prefixed_utf8(&mut reader)?.parse()?;
+                        let biblicality = fig::read_length_prefixed_utf8(&mut reader)?.parse()?;
                         self.state.chat.author = author;
                         self.state.chat.msg = msg;
                         self.state.chat.time = time;

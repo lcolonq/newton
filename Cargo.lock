@@ -1707,6 +1707,15 @@ name = "jpeg-decoder"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00810f1d8b74be64b13dbf3db89ac67740615d6c891f0e7b6179326533011a07"
+dependencies = [
+ "rayon",
+]
+
+[[package]]
+name = "jpeg-encoder"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b454d911ac55068f53495488d8ccd0646eaa540c033a28ee15b07838afafb01f"
 
 [[package]]
 name = "js-sys"
@@ -1716,6 +1725,15 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "kamadak-exif"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef4fc70d0ab7e5b6bafa30216a6b48705ea964cdfc29c050f2412295eba58077"
+dependencies = [
+ "mutate_once",
 ]
 
 [[package]]
@@ -1940,6 +1958,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "mutate_once"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13d2233c9842d08cfe13f9eac96e207ca6a2ea10b80259ebe8ad0268be27d2af"
+
+[[package]]
 name = "nalgebra"
 version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2066,6 +2090,7 @@ dependencies = [
  "strum",
  "teleia",
  "termion",
+ "web-image-meta",
 ]
 
 [[package]]
@@ -3385,7 +3410,6 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 [[package]]
 name = "teleia"
 version = "0.1.0"
-source = "git+https://github.com/lcolonq/teleia#9e95cb43f1dbc9e63c9e3df2472c36e38e19fc88"
 dependencies = [
  "bimap",
  "bincode",
@@ -4058,6 +4082,21 @@ dependencies = [
  "log",
  "once_cell",
  "pkg-config",
+]
+
+[[package]]
+name = "web-image-meta"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "345e45cce08e14e76a42ab280f1ca3083aee6e8cb68a78bcf9368b912f9f8f2f"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "jpeg-decoder",
+ "jpeg-encoder",
+ "kamadak-exif",
+ "png",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

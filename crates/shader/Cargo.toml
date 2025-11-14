@@ -8,7 +8,7 @@ authors.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-teleia = { git = "https://github.com/lcolonq/teleia" } # engine
+teleia = { workspace = true }
 glam = "*" # linear algebra
 bitflags = "*" # C-style bitwise flags
 rand = "=0.8.5" # rng
