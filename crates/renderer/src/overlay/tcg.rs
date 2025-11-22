@@ -1,6 +1,11 @@
 use teleia::*;
+
+use std::{cell::RefCell, io::Write, rc::Rc};
+
+use redis::Commands;
 use image::EncodableLayout;
 use glow::HasContext;
+use glam::Vec4Swizzles;
 
 use crate::overlay;
 
@@ -26,6 +31,8 @@ impl std::error::Error for Error {}
 
 #[derive(Debug, Clone)]
 struct Card {
+    frames: u32, encoded: String,
+    owner: String, owner_id: String,
     name: String,
     ty: String,
     depicted_subject: String,
@@ -46,92 +53,220 @@ struct Card {
 
 struct RenderedCardSlot {
     card: Option<Card>,
-    texture: texture::Texture,
+    card_fb: framebuffer::Framebuffer,
+    effect_fb: framebuffer::Framebuffer, 
 }
 impl RenderedCardSlot {
     pub fn new(ctx: &context::Context) -> Self {
+        let card_fb = framebuffer::Framebuffer::new(ctx,
+            &glam::Vec2::new(WIDTH, HEIGHT),
+            &glam::Vec2::ZERO
+        );
+        unsafe {
+            card_fb.bind_texture(ctx);
+            ctx.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as _);
+            ctx.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as _);
+        }
         Self {
             card: None,
-            texture: texture::Texture::new_empty(ctx),
+            card_fb,
+            effect_fb: framebuffer::Framebuffer::new(ctx, &glam::Vec2::new(WIDTH, HEIGHT), &glam::Vec2::ZERO),
         }
     }
-    pub fn set(&mut self, ctx: &context::Context, card: Card, img: &image::RgbaImage) {
+    pub fn set(&mut self,
+        ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        renderer: &CardRenderer, card: Card
+    ) {
+        renderer.render_card_framebuffer(ctx, st, ost, &card, &self.card_fb);
         self.card = Some(card);
-        unsafe {
-            self.texture.bind(ctx);
-            ctx.gl.tex_image_2d(
-                glow::TEXTURE_2D,
-                0,
-                glow::RGBA as i32,
-                img.width() as i32,
-                img.height() as i32,
-                0,
-                glow::RGBA,
-                glow::UNSIGNED_BYTE,
-                Some(&img.as_bytes()),
-            );
-            ctx.gl.generate_mipmap(glow::TEXTURE_2D);
-        }
+    }
+    pub fn apply_effect(&self,
+        ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        progress: f32,
+    ) {
+        st.bind_framebuffer(ctx, &self.effect_fb);
+        ctx.clear();
+        st.bind_2d(ctx, &ost.assets.shader_tcg_effect);
+        ost.assets.shader_tcg_effect.set_i32(ctx, "mode", 0);
+        ost.assets.shader_tcg_effect.set_f32(ctx, "progress", progress);
+        self.card_fb.bind_texture(ctx);
+        ost.assets.shader_tcg_effect.set_position_2d(ctx, st, &glam::Vec2::new(0.0, 0.0), &glam::Vec2::new(WIDTH, HEIGHT));
+        st.mesh_square.render(ctx);
+        st.bind_render_framebuffer(ctx);
+    }
+    pub fn bind(&self, ctx: &context::Context) {
+        self.card_fb.bind(ctx)
     }
     pub fn render(&self,
         ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        progress: f32,
         pos: glam::Vec2,
         dim: glam::Vec2,
     ) {
+        self.apply_effect(ctx, st, ost, progress);
         st.bind_2d(ctx, &ost.assets.shader_tcg_screen);
-        self.texture.bind(ctx);
+        self.effect_fb.bind_texture(ctx);
         ost.assets.shader_tcg_screen.set_position_2d(ctx, st, &pos, &dim);
         st.mesh_square.render(ctx);
     }
     pub fn render_3d(&self,
         ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
         back: &texture::Texture,
+        progress: f32,
         pos: glam::Mat4,
     ) {
+        self.apply_effect(ctx, st, ost, progress);
         st.bind_3d(ctx, &ost.assets.shader_tcg_screen);
         ost.assets.shader_tcg_screen.set_i32(ctx, "texture_front", 0);
         ost.assets.shader_tcg_screen.set_i32(ctx, "texture_back", 1);
-        self.texture.bind(ctx);
+        self.effect_fb.bind_texture(ctx);
         back.bind_index(ctx, 1);
         ost.assets.shader_tcg_screen.set_position_3d(ctx, st, &pos);
         st.mesh_square.render(ctx);
     }
 }
 
+struct ImageWrite {
+    buf: Rc<RefCell<Vec<u8>>>,
+}
+impl Write for ImageWrite {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buf.borrow_mut().write(buf)
+    }
+    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+}
+struct ImageEncoder {
+    frames: u32,
+    frames_left: u32,
+    buf: Rc<RefCell<Vec<u8>>>,
+    writer: png::Writer<ImageWrite>,
+}
+impl ImageEncoder {
+    fn build_writer(frames: u32, w: ImageWrite) -> Option<png::Writer<ImageWrite>> {
+        let mut encoder = png::Encoder::new(w, IWIDTH as _, IHEIGHT as _);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2));
+        encoder.set_source_chromaticities(png::SourceChromaticities::new(
+            (0.31270, 0.32900),
+            (0.64000, 0.33000),
+            (0.30000, 0.60000),
+            (0.15000, 0.06000),
+        ));
+        encoder.set_animated(frames, 0).ok()?;
+        encoder.set_frame_delay(1, 20).ok()?;
+        encoder.write_header().ok()
+    }
+    fn start(frames: u32) -> Option<Self> {
+        let buf = Rc::new(RefCell::new(Vec::new()));
+        let w = ImageWrite { buf: buf.clone() };
+        let writer = Self::build_writer(frames, w)?;
+        Some(Self {
+            frames,
+            frames_left: frames,
+            buf,
+            writer,
+        })
+    }
+    fn write_frame(&mut self, pixels: &[u8]) {
+        if self.frames_left > 0 {
+            let _ = self.writer.write_image_data(&pixels);
+            self.frames_left -= 1;
+        }
+    }
+    fn is_finished(&self) -> bool {
+        self.frames_left == 0
+    }
+    fn finish(self) -> Option<Vec<u8>> {
+        if self.is_finished() {
+            self.writer.finish().expect("failed to finish");
+            Some(self.buf.replace(Vec::new()))
+        } else { None }
+    }
+}
+
 struct MarqueeSlot {
     card: RenderedCardSlot, 
+    encoder: Option<ImageEncoder>,
     active: Option<u64>, // ticks active
+    height_offset: bool,
+}
+impl MarqueeSlot {
+    fn write_frame(&mut self, ctx: &context::Context) {
+        let mut pixels = [0; IWIDTH * IHEIGHT * 4];
+        if let Some(enc) = &mut self.encoder {
+            if enc.frames_left > 0 {
+                self.card.effect_fb.get_pixels_raw(ctx, &mut pixels);
+                enc.write_frame(&pixels);
+            }
+        }
+    }
+    fn render(&mut self,
+        ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        progress: f32,
+        pos: glam::Vec2,
+        dim: glam::Vec2,
+    ) {
+        self.card.render(ctx, st, ost, progress, pos, dim);
+        self.write_frame(ctx);
+    }
+    fn render_3d(&mut self,
+        ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        back: &texture::Texture,
+        progress: f32,
+        pos: glam::Mat4,
+    ) {
+        self.card.render_3d(ctx, st, ost, back, progress, pos);
+        self.write_frame(ctx);
+    }
 }
 struct Marquee {
     texture_back: texture::Texture,
+    font: font::Bitmap,
     slots: [MarqueeSlot; CARD_SLOTS],
     next_slot: usize,
-    queue: std::collections::VecDeque<(Card, image::RgbaImage)>,
+    queue: std::collections::VecDeque<Card>,
     most_recent: u64,
+    height_offset: bool,
 }
 impl Marquee {
     pub fn new(ctx: &context::Context) -> Self {
         Self {
             texture_back: texture::Texture::new(ctx, include_bytes!("../assets/textures/tcg/cardback.png")),
+            font: font::Bitmap::from_image(ctx, 6, 12, 96, 72, include_bytes!("../assets/fonts/terminus.png")),
             slots: std::array::from_fn(|_| MarqueeSlot {
                 card: RenderedCardSlot::new(ctx),
                 active: None,
+                encoder: None,
+                height_offset: false,
             }),
             next_slot: 0,
             queue: std::collections::VecDeque::new(),
             most_recent: 0,
+            height_offset: false,
         }
     }
+    fn set_slot(&mut self,
+        ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        renderer: &CardRenderer,
+        sidx: usize, card: Card
+    ) {
+        self.slots[sidx].card.set(ctx, st, ost, renderer, card.clone());
+        self.slots[sidx].active = Some(st.tick);
+        self.slots[sidx].height_offset = self.height_offset;
+        self.slots[sidx].encoder = ImageEncoder::start(card.frames);
+        self.height_offset = !self.height_offset;
+        self.most_recent = st.tick;
+    }
     fn fill_slot(&mut self,
-        ctx: &context::Context, st: &state::State,
-        card: &Card, img: &image::RgbaImage
+        ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        renderer: &CardRenderer,
+        card: &Card,
     ) -> bool {
         if st.tick - self.most_recent > CARD_SPACING {
-            for s in self.slots.iter_mut() {
+            for (idx, s) in self.slots.iter_mut().enumerate() {
                 if s.active.is_none() {
-                    s.card.set(ctx, card.clone(), img);
-                    s.active = Some(st.tick);
-                    self.most_recent = st.tick;
+                    self.set_slot(ctx, st, ost, renderer, idx, card.clone());
                     return true;
                 }
             }
@@ -139,22 +274,41 @@ impl Marquee {
         false
     }
     pub fn add(&mut self,
-        ctx: &context::Context, st: &state::State,
-        card: Card, img: &image::RgbaImage
+        ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        renderer: &CardRenderer,
+        card: Card,
     ) {
-        if !self.fill_slot(ctx, st, &card, img) {
-            self.queue.push_back((card, img.clone()))
+        if !self.fill_slot(ctx, st, ost, renderer, &card) {
+            self.queue.push_back(card)
         }
+    }
+    fn upload_card(ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        c: &Card, buf: &[u8]
+    ) -> Erm<()> {
+        let with_meta = web_image_meta::png::add_text_chunk(
+            buf, "lcolonqtcg", &c.encoded,
+        )?;
+        let uuid = uuid::Uuid::new_v4();
+        let _: () = ost.redis_conn.hset("tcg:cards", uuid.to_string(), &with_meta)?;
+        let inventory_key = format!("tcg-inventory:{}", c.owner_id);
+        let _: () = ost.redis_conn.lpush(inventory_key, uuid.to_string())?;
+        Ok(())
     }
     pub fn render(&mut self, 
         ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
+        renderer: &CardRenderer,
     ) {
         for s in self.slots.iter_mut() {
-            if s.active.is_none() && st.tick - self.most_recent > CARD_SPACING{
-                if let Some((c, img)) = self.queue.pop_front() {
-                    s.card.set(ctx, c.clone(), &img);
-                    s.active = Some(st.tick);
-                    self.most_recent = st.tick;
+            if let Some(b) = s.encoder.take_if(|e| e.is_finished()).and_then(|enc| enc.finish()) {
+                if let Some(c) = &s.card.card {
+                    let _ = Self::upload_card(ctx, st, ost, &c, &b).expect("failed to upload");
+                }
+            }
+        }
+        for idx in 0..CARD_SLOTS {
+            if self.slots[idx].active.is_none() && st.tick - self.most_recent > CARD_SPACING {
+                if let Some(c) = self.queue.pop_front() {
+                    self.set_slot(ctx, st, ost, renderer, idx, c);
                 } else {
                     break;
                 }
@@ -167,33 +321,49 @@ impl Marquee {
                 if pos > 8.0 {
                     s.active = None;
                 } else {
-                    s.card.render_3d(ctx, st, ost,
-                        &self.texture_back,
-                        glam::Mat4::from_scale_rotation_translation(
-                            glam::Vec3::new(0.7111, 1.0, 1.0),
-                            glam::Quat::from_rotation_y(p as f32 / 75.0),
-                            glam::Vec3::new(pos, -2.0,
-                                (p as f32 / 100.0).sin() / 2.0 - 8.0
-                            ),
-                        )
+                    let trans = glam::Mat4::from_scale_rotation_translation(
+                        glam::Vec3::new(0.7111, 1.0, 1.0),
+                        glam::Quat::from_rotation_y(p as f32 / 75.0),
+                        glam::Vec3::new(pos, -2.0, -8.0)
                     );
+                    let proj = glam::Vec4::new(0.0, 0.0, 0.0, 1.0);
+                    let p_norm = st.projection.mul_vec4(st.view().mul_vec4(trans.mul_vec4(proj)));
+                    let p_xy = (p_norm.xy() / p_norm.w) * glam::Vec2::new(1.0, -1.0);
+                    let p_screen = (p_xy + glam::Vec2::new(1.0, 1.0)) / 2.0 * st.render_dims;
+                    let progress = if let Some(c) = &s.card.card {
+                        if c.frames == 0 { 1.0 } else {
+                            (p as u32 % c.frames) as f32 / c.frames as f32
+                        }
+                    } else { 1.0 };
+                    s.render_3d(ctx, st, ost, &self.texture_back, progress, trans);
+                    if let Some(c) = &s.card.card {
+                        let scale = 4.0;
+                        let owner_width = c.owner.len() as f32 * self.font.char_width as f32 * scale;
+                        self.font.render_text_parameterized(ctx, st,
+                            &(p_screen + glam::Vec2::new(-owner_width / 2.0,
+                                -200.0 + if s.height_offset { -50.0 } else { 0.0 })),
+                            &c.owner,
+                            font::BitmapParams {
+                                color: &[glam::Vec3::new(1.0, 1.0, 1.0)],
+                                scale: glam::Vec2::new(scale, scale),
+                            },
+                        );
+                    }
                 }
             }
         }
     }
 }
 
-pub struct Overlay {
-    fb: framebuffer::Framebuffer,
+struct CardRenderer {
+    font: font::Bitmap,
     texture_base: texture::Texture,
     texture_art: texture::Texture,
     texture_faction_nate: texture::Texture,
     texture_faction_lever: texture::Texture,
     texture_faction_tony: texture::Texture,
-    font: font::Bitmap,
-    marquee: Marquee,
 }
-impl Overlay {
+impl CardRenderer {
     fn load_texture(tex: &texture::Texture, ctx: &context::Context, st: &mut state::State, path: &str) -> Erm<()> {
         unsafe {
             let img = image::ImageReader::open(path)?.decode()?.into_rgba8();
@@ -213,19 +383,17 @@ impl Overlay {
             Ok(())
         }
     }
-
-    pub fn new(ctx: &context::Context) -> Self {
+    fn new(ctx: &context::Context) -> Self {
         Self {
-            fb: framebuffer::Framebuffer::new(ctx, &glam::Vec2::new(WIDTH, HEIGHT), &glam::Vec2::new(0.0, 0.0)),
             texture_base: texture::Texture::new_empty(ctx),
             texture_art: texture::Texture::new_empty(ctx),
             texture_faction_nate: texture::Texture::new(ctx, include_bytes!("../assets/textures/tcg/factions/nate.png")),
             texture_faction_lever: texture::Texture::new(ctx, include_bytes!("../assets/textures/tcg/factions/lever.png")),
             texture_faction_tony: texture::Texture::new(ctx, include_bytes!("../assets/textures/tcg/factions/tony.png")),
             font: font::Bitmap::from_image(ctx, 6, 12, 96, 72, include_bytes!("../assets/fonts/terminus.png")),
-            marquee: Marquee::new(ctx),
         }
     }
+
     fn draw_rectangle(&self,
         ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State,
         color: glam::Vec4, pos: glam::Vec2, dims: glam::Vec2
@@ -239,8 +407,12 @@ impl Overlay {
         st.mesh_square.render(ctx);
     }
 
-    fn generate_card(&self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State, card: Card) -> Option<image::RgbaImage> {
-        st.bind_framebuffer(ctx, &self.fb);
+    fn render_card_framebuffer(&self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State, card: &Card, fb: &framebuffer::Framebuffer) {
+        let _ = Self::load_texture(&self.texture_base, ctx, st, &format!("crates/renderer/src/assets/textures/tcg/bases/{}.png", card.base_image_name));
+        if Self::load_texture(&self.texture_art, ctx, st, &format!("/home/llll/src/wasp/assets/avatars/{}.png", card.depicted_subject.to_ascii_lowercase())).is_err() {
+            let _ = Self::load_texture(&self.texture_art, ctx, st, "/home/llll/src/wasp/assets/avatars/jontest.png");
+        }
+        st.bind_framebuffer(ctx, &fb);
         ctx.clear();
 
         st.bind_2d(ctx, &ost.assets.shader_tcg_base);
@@ -354,12 +526,27 @@ impl Overlay {
             &format!("{}", card.minted_date),
             &[glam::Vec3::new(1.0, 1.0, 1.0)]
         );
-
         st.bind_render_framebuffer(ctx);
-        let mut pixels = vec![0; IWIDTH * IHEIGHT * 4];
-        self.fb.get_pixels_raw(ctx, &mut pixels);
-        let pixels_rev = pixels.chunks_exact(IWIDTH * 4).rev().flatten().copied().collect();
-        image::RgbaImage::from_vec(IWIDTH as u32, IHEIGHT as u32, pixels_rev)
+    }
+
+}
+
+pub struct Overlay {
+    renderer: CardRenderer,
+    marquee: Marquee,
+}
+impl Overlay {
+    pub fn new(ctx: &context::Context) -> Self {
+        let fb = framebuffer::Framebuffer::new(ctx, &glam::Vec2::new(WIDTH, HEIGHT), &glam::Vec2::new(0.0, 0.0));
+        unsafe {
+            fb.bind_texture(ctx);
+            ctx.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as _);
+            ctx.gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as _);
+        }
+        Self {
+            renderer: CardRenderer::new(ctx),
+            marquee: Marquee::new(ctx),
+        }
     }
 }
 
@@ -374,6 +561,8 @@ impl overlay::Overlay for Overlay {
                     let s = std::str::from_utf8(&msg.data)?.to_owned();
                     log::info!("msg: {}", s);
                     let mut sp = s.split("\t");
+                    let owner = sp.next().ok_or(Error::NotEnoughFields)?.to_owned();
+                    let owner_id = sp.next().ok_or(Error::NotEnoughFields)?.to_owned();
                     let name = sp.next().ok_or(Error::NotEnoughFields)?.to_owned();
                     let ty = sp.next().ok_or(Error::NotEnoughFields)?.to_owned();
                     let depicted_subject = sp.next().ok_or(Error::NotEnoughFields)?.to_owned();
@@ -396,11 +585,10 @@ impl overlay::Overlay for Overlay {
                     let set = sp.next().ok_or(Error::NotEnoughFields)?.to_owned();
                     let minted_date = sp.next().ok_or(Error::NotEnoughFields)?.to_owned();
                     let flags = sp.next().ok_or(Error::NotEnoughFields)?.to_owned();
-                    Self::load_texture(&self.texture_base, ctx, st, &format!("crates/renderer/src/assets/textures/tcg/bases/{}.png", base_image_name))?;
-                    if Self::load_texture(&self.texture_art, ctx, st, &format!("/home/llll/src/wasp/assets/avatars/{}.png", depicted_subject.to_ascii_lowercase())).is_err() {
-                        Self::load_texture(&self.texture_art, ctx, st, "/home/llll/src/wasp/assets/avatars/jontest.png")?;
-                    }
                     let card = Card {
+                        frames: 20, encoded: s.clone(),
+                        owner,
+                        owner_id,
                         name,
                         ty,
                         depicted_subject,
@@ -417,23 +605,7 @@ impl overlay::Overlay for Overlay {
                         minted_date,
                         flags,
                     };
-                    if let Some(img) = self.generate_card(ctx, st, ost, card.clone()) {
-                        self.marquee.add(ctx, st, card, &img);
-                        let err: Erm<()> = (||{
-                            let mut buf = Vec::new();
-                            let mut cursor = std::io::Cursor::new(&mut buf);
-                            img.write_to(&mut cursor, image::ImageFormat::Png)?;
-                            let with_meta = web_image_meta::png::add_text_chunk(
-                                &buf, "lcolonqtcg", &s
-                            )?;
-                            // TODO: write to redis here
-                            std::fs::write("/tmp/card.png", &with_meta)?;
-                            Ok(())
-                        })();
-                        if let Err(e) = err {
-                            log::warn!("failed to encode image: {}", e)
-                        }
-                    }
+                    self.marquee.add(ctx, st, ost, &self.renderer, card);
                     Ok(())
                 })();
                 if let Err(e) = res { log::warn!("malformed TCG generate: {}", e); }
@@ -445,7 +617,7 @@ impl overlay::Overlay for Overlay {
     fn render(&mut self, ctx: &context::Context, st: &mut state::State, ost: &mut overlay::State) -> Erm<()> {
         st.render_framebuffer.bind(ctx);
         ctx.clear_depth();
-        self.marquee.render(ctx, st, ost);
+        self.marquee.render(ctx, st, ost, &self.renderer);
         Ok(())
     }
 }

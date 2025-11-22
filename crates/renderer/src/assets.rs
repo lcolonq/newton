@@ -8,6 +8,7 @@ pub struct Assets {
     pub shader_tcg: shader::Shader,
     pub shader_tcg_screen: shader::Shader,
     pub shader_tcg_base: shader::Shader,
+    pub shader_tcg_effect: shader::Shader,
     pub texture_adblock: texture::Texture,
     pub texture_mod: texture::Texture,
     pub texture_operatop: texture::Texture,
@@ -47,6 +48,11 @@ impl Assets {
                 ctx,
                 include_str!("assets/shaders/tcg_base/vert.glsl"),
                 include_str!("assets/shaders/tcg_base/frag.glsl")
+            ),
+            shader_tcg_effect: shader::Shader::new(
+                ctx,
+                include_str!("assets/shaders/tcg_effect/vert.glsl"),
+                include_str!("assets/shaders/tcg_effect/frag.glsl")
             ),
             texture_adblock: texture::Texture::new(ctx, include_bytes!("assets/textures/adblock.png")),
             texture_mod: texture::Texture::new(ctx, include_bytes!("assets/textures/mod.png")),
